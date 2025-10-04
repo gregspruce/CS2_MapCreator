@@ -17,6 +17,7 @@ from perlin_noise import PerlinNoise
 from opensimplex import OpenSimplex
 from typing import Optional, Tuple
 import math
+from .progress_tracker import ProgressTracker
 
 
 class NoiseGenerator:
@@ -47,7 +48,8 @@ class NoiseGenerator:
                        scale: float = 100.0,
                        octaves: int = 6,
                        persistence: float = 0.5,
-                       lacunarity: float = 2.0) -> np.ndarray:
+                       lacunarity: float = 2.0,
+                       show_progress: bool = True) -> np.ndarray:
         """
         Generate terrain using Perlin noise.
 
@@ -57,6 +59,7 @@ class NoiseGenerator:
             octaves: Number of noise layers (more = more detail)
             persistence: Amplitude decrease per octave (0.0-1.0)
             lacunarity: Frequency increase per octave (typically 2.0)
+            show_progress: Show progress bar (default: True)
 
         Returns:
             2D numpy array normalized to 0.0-1.0
@@ -70,24 +73,27 @@ class NoiseGenerator:
         heightmap = np.zeros((resolution, resolution), dtype=np.float64)
 
         # Generate multiple octaves and combine
-        for octave in range(octaves):
-            frequency = lacunarity ** octave
-            amplitude = persistence ** octave
+        with ProgressTracker("Generating Perlin terrain", total=octaves, disable=not show_progress) as progress:
+            for octave in range(octaves):
+                frequency = lacunarity ** octave
+                amplitude = persistence ** octave
 
-            # Create PerlinNoise instance for this octave
-            # octaves parameter here is internal octave count for the noise function
-            perlin = PerlinNoise(octaves=1, seed=self.seed + octave)
+                # Create PerlinNoise instance for this octave
+                # octaves parameter here is internal octave count for the noise function
+                perlin = PerlinNoise(octaves=1, seed=self.seed + octave)
 
-            for y in range(resolution):
-                for x in range(resolution):
-                    # Sample noise at scaled coordinates
-                    nx = x / scale * frequency
-                    ny = y / scale * frequency
+                for y in range(resolution):
+                    for x in range(resolution):
+                        # Sample noise at scaled coordinates
+                        nx = x / scale * frequency
+                        ny = y / scale * frequency
 
-                    # PerlinNoise returns values roughly in range [-0.5, 0.5]
-                    noise_value = perlin([nx, ny]) * 2.0  # Scale to ~[-1, 1]
+                        # PerlinNoise returns values roughly in range [-0.5, 0.5]
+                        noise_value = perlin([nx, ny]) * 2.0  # Scale to ~[-1, 1]
 
-                    heightmap[y, x] += noise_value * amplitude
+                        heightmap[y, x] += noise_value * amplitude
+
+                progress.update(1)
 
         # Normalize to 0.0-1.0
         heightmap = (heightmap - heightmap.min()) / (heightmap.max() - heightmap.min())
@@ -99,7 +105,8 @@ class NoiseGenerator:
                         scale: float = 100.0,
                         octaves: int = 6,
                         persistence: float = 0.5,
-                        lacunarity: float = 2.0) -> np.ndarray:
+                        lacunarity: float = 2.0,
+                        show_progress: bool = True) -> np.ndarray:
         """
         Generate terrain using OpenSimplex noise (faster than Perlin).
 
@@ -109,6 +116,7 @@ class NoiseGenerator:
             octaves: Number of noise layers
             persistence: Amplitude decrease per octave
             lacunarity: Frequency increase per octave
+            show_progress: Show progress bar (default: True)
 
         Returns:
             2D numpy array normalized to 0.0-1.0
@@ -121,21 +129,24 @@ class NoiseGenerator:
         """
         heightmap = np.zeros((resolution, resolution), dtype=np.float64)
 
-        for octave in range(octaves):
-            frequency = lacunarity ** octave
-            amplitude = persistence ** octave
+        with ProgressTracker("Generating Simplex terrain", total=octaves, disable=not show_progress) as progress:
+            for octave in range(octaves):
+                frequency = lacunarity ** octave
+                amplitude = persistence ** octave
 
-            # Create new OpenSimplex instance for this octave
-            simplex = OpenSimplex(seed=self.seed + octave)
+                # Create new OpenSimplex instance for this octave
+                simplex = OpenSimplex(seed=self.seed + octave)
 
-            for y in range(resolution):
-                for x in range(resolution):
-                    nx = x / scale * frequency
-                    ny = y / scale * frequency
+                for y in range(resolution):
+                    for x in range(resolution):
+                        nx = x / scale * frequency
+                        ny = y / scale * frequency
 
-                    # OpenSimplex noise2 returns values in range [-1, 1]
-                    noise_value = simplex.noise2(nx, ny)
-                    heightmap[y, x] += noise_value * amplitude
+                        # OpenSimplex noise2 returns values in range [-1, 1]
+                        noise_value = simplex.noise2(nx, ny)
+                        heightmap[y, x] += noise_value * amplitude
+
+                progress.update(1)
 
         # Normalize to 0.0-1.0
         heightmap = (heightmap - heightmap.min()) / (heightmap.max() - heightmap.min())

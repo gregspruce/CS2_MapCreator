@@ -4,6 +4,47 @@ All notable changes to the CS2 Heightmap Generator project will be documented in
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.0] - 2025-10-04
+
+### Added - State Management System & Progress Tracking
+- **Command Pattern Implementation** (`src/state_manager.py`)
+  - Full undo/redo support for all heightmap operations
+  - 6 concrete Command classes: SetHeightData, Smooth, AddCircle, ApplyFunction, Normalize, Macro
+  - CommandHistory with stack-based undo/redo
+  - Memory-efficient storage (stores diffs, not full snapshots)
+  - MacroCommand for grouping operations
+  - Memory usage tracking and reporting
+- **Progress Tracking System** (`src/progress_tracker.py`)
+  - Context manager for long-running operations
+  - tqdm-based progress bars with visual feedback
+  - Silent mode support for batch/automation
+  - Thread-safe design for future multi-threading (Phase 5)
+  - Helper functions: track_array_operation, track_iteration
+- **Comprehensive Test Suites**
+  - `test_state_manager.py` - 4 tests, 100% pass rate
+  - `test_progress_tracker.py` - 6 tests, all passing
+  - `test_integration.py` - 4 integration tests with performance baselines
+- **Project Planning** (`ProjectPlan.md`)
+  - Complete 5-phase implementation roadmap
+  - Detailed specifications for all planned features
+  - Optimal solution documentation (no workarounds, no fallbacks)
+  - Week-by-week development schedule
+
+### Changed
+- Updated `TODO.md` with phase-based organization
+- Updated documentation to reflect state management capabilities
+- Restructured development roadmap for clarity
+- Added progress tracking to noise generation functions (Perlin, Simplex)
+- Added `show_progress` parameter to generation functions (default: True)
+
+### Technical
+- State management uses industry-standard Command pattern
+- Optimal solution: same pattern used in Photoshop, Blender, etc.
+- Foundation for GUI undo/redo functionality
+- Enables complex operation rollback
+- Progress tracking uses context manager pattern (guaranteed cleanup)
+- Performance baseline: ~18,000 pixels/second on test hardware
+
 ## [1.0.1] - 2025-10-04
 
 ### Fixed

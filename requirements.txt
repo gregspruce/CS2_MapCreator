@@ -11,6 +11,9 @@ scipy>=1.10.0
 perlin-noise>=1.12
 opensimplex>=0.4.5
 
+# Progress tracking
+tqdm>=4.65.0
+
 # Optional: GUI support (uncomment if needed)
 # PyQt5>=5.15.0
 
