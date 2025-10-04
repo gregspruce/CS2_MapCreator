@@ -4,6 +4,53 @@ All notable changes to the CS2 Heightmap Generator project will be documented in
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 2025-10-04
+
+### Added - Quality of Life Features (Analysis, Preview, Presets)
+- **Terrain Analysis System** (`src/analysis/terrain_analyzer.py`)
+  - Slope calculation using Sobel filters (GIS industry standard)
+  - Aspect calculation (compass direction of slope, 0-360 degrees)
+  - Comprehensive statistics (min/max/mean/median/std/percentiles)
+  - Height distribution analysis (histogram with configurable bins)
+  - Peak detection with height/distance filtering
+  - Valley detection with height/distance filtering
+  - Terrain classification (flat/steep percentage)
+  - Report generation with all metrics
+- **Preview Generation System** (`src/preview_generator.py`)
+  - Hillshade rendering using Lambert's cosine law (cartography standard)
+  - Configurable light source (azimuth 0-360, altitude 0-90)
+  - Multiple colormaps: terrain (green->brown->white), elevation (blue->green->red), grayscale
+  - Hillshade+color blending for 3D visualization
+  - Thumbnail generation (configurable size)
+  - Export to PNG/JPEG with quality control
+- **Preset Management System** (`src/preset_manager.py`)
+  - JSON-based storage (human-readable, portable, git-friendly)
+  - Cross-platform preset directory (~/.cs2_heightmaps/presets/)
+  - Save/load/list/delete operations
+  - Import/export for sharing presets
+  - Preset validation with error reporting
+  - Filename sanitization (safe for all platforms)
+- **Comprehensive Test Suite** (`test_qol_features.py`)
+  - 8 tests covering all QoL features
+  - Slope/aspect calculation validation
+  - Statistics accuracy validation
+  - Hillshade rendering validation
+  - Preset save/load integrity validation
+  - All tests passing
+
+### Changed
+- Added src/analysis/ module for terrain analysis
+- All analysis methods use standard GIS algorithms
+- Preview generation follows cartography standards
+- Preset storage uses cross-platform paths
+
+### Technical
+- Sobel filter: Optimal 8-neighbor weighted gradient (ArcGIS standard)
+- Hillshade: Lambert's cosine law (100+ years in cartography)
+- JSON presets: Python built-in, no dependencies, human-readable
+- All algorithms are industry-standard methods
+- Zero arbitrary decisions - all based on proven standards
+
 ## [1.2.0] - 2025-10-04
 
 ### Added - Water Features (Rivers, Lakes, Coastal)
