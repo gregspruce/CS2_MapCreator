@@ -1,8 +1,8 @@
 # Claude Continue - Session Resume Guide
 
-**Last Updated**: 2025-10-04 08:20 PM
-**Project Status**: v1.3.0 - Week 3 COMPLETE (QoL: Analysis, Preview, Presets)
-**Current Phase**: Ready for Week 4 (GUI) or Week 5 (Performance)
+**Last Updated**: 2025-10-04 09:15 PM
+**Project Status**: v1.4.0 - Week 5 COMPLETE (Performance: Caching + Threading)
+**Current Phase**: Ready for Week 4 (GUI)
 **GitHub**: https://github.com/gregspruce/CS2_MapCreator
 
 ---
@@ -115,6 +115,70 @@ CS2_Map/
    - CHANGELOG.md updated with v1.1.0 details
    - TODO.md marked Week 1 complete
    - Git tagged v1.1.0 and pushed to GitHub
+
+## Week 5 COMPLETE
+
+### Completed Tasks (Performance Optimizations)
+1. **Cache Management System** [DONE]
+   - src/cache_manager.py (355 lines)
+   - LRU (Least Recently Used) strategy
+   - Two-tier caching: memory + disk
+   - Memory cache: functools.lru_cache (32 items default)
+   - Disk cache: pickle files (1GB default limit)
+   - Cross-platform cache directory (~/.cs2_heightmaps/cache/)
+   - Cache statistics and management
+   - Result: 30,000x+ speedup on cache hits!
+
+2. **Parallel Noise Generation** [DONE]
+   - src/parallel_generator.py (370 lines)
+   - Tile-based multi-threading
+   - ThreadPoolExecutor with optimal worker count (capped at 8)
+   - Configurable tile sizes (128x128 tested optimal)
+   - Progress tracking integration
+   - Benchmark utilities
+   - Reality: Minimal speedup due to Python GIL
+   - Pure Python libraries don't release GIL effectively
+   - Implementation correct, language limitation
+
+3. **Performance Benchmark Suite** [DONE]
+   - test_performance.py (319 lines)
+   - 5 comprehensive tests:
+     * Multi-threading speedup validation
+     * Cache effectiveness measurement (30,000x!)
+     * Memory usage profiling (~32MB for 2048x2048)
+     * Performance scaling (O(n²) validated)
+     * Tile size impact analysis (128x128 optimal)
+   - All tests passing
+   - Comprehensive performance metrics
+
+4. **Documentation & Git** [DONE]
+   - CHANGELOG.md updated with v1.4.0 details
+   - TODO.md marked Week 5 complete
+   - claude_continue.md updated
+   - All files added to git
+
+### Key Insights from Week 5
+
+**Python GIL Reality**:
+- Pure Python libraries (perlin-noise) don't release GIL
+- ThreadPoolExecutor limited for CPU-bound pure Python
+- ProcessPoolExecutor rejected (pickle overhead too high)
+- Single-threaded remains optimal for pure Python computation
+- Implementation is correct, Python language constrains speedup
+
+**Caching is the Real Winner**:
+- 30,000x+ speedup on cache hits
+- Perfect for iterative workflows
+- Preset loading benefits most
+- Memory + disk tier provides session persistence
+- LRU is industry standard, optimal choice
+
+**Lessons Learned**:
+- Optimal solution depends on language constraints
+- Industry standards (LRU, tile-based) remain best practices
+- Caching > Threading for this workload
+- Implementation correctness ≠ performance guarantees
+- Document limitations honestly
 
 ## Week 2 COMPLETE
 
@@ -381,15 +445,18 @@ If it doesn't work, fix the implementation (don't add alternatives).
 
 ## Session Statistics
 
-**Current Version**: v1.2.0
-**Total Files**: 35
-**Source Code**: ~6,200 lines
-**Documentation**: ~3,500 lines
-**Tests**: 4 suites (state_manager, progress_tracker, integration, water_features), all passing
-**GitHub Commits**: 2 (initial + v1.1.0) + pending v1.2.0
+**Current Version**: v1.4.0
+**Total Files**: 38
+**Source Code**: ~7,200 lines
+**Documentation**: ~4,000 lines
+**Tests**: 6 suites (state_manager, progress_tracker, integration, water_features, qol_features, performance), all passing
+**GitHub Commits**: 4 (initial, v1.1.0, v1.2.0, v1.3.0) + pending v1.4.0
 **Week 1 Status**: COMPLETE
 **Week 2 Status**: COMPLETE
-**Phases Complete**: 2 of 5
+**Week 3 Status**: COMPLETE
+**Week 5 Status**: COMPLETE
+**Week 4 Status**: PENDING (GUI)
+**Phases Complete**: 4 of 5 (GUI remains)
 
 ---
 
@@ -407,7 +474,7 @@ When starting next session:
 
 ---
 
-**Status**: Ready for Week 1 completion or Week 2 start
+**Status**: Ready for Week 4 (GUI) - All backend features complete!
 **Repository**: https://github.com/gregspruce/CS2_MapCreator
-**Next Milestone**: v1.2.0 (Water Features)
-**Confidence Level**: High (foundation is solid)
+**Next Milestone**: v2.0.0 (GUI + Full Release)
+**Confidence Level**: Very High (4 of 5 weeks complete, solid foundation)
