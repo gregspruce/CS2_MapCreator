@@ -4,6 +4,51 @@ All notable changes to the CS2 Heightmap Generator project will be documented in
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2025-10-04
+
+### Added - Water Features (Rivers, Lakes, Coastal)
+- **River Generation System** (`src/features/river_generator.py`)
+  - D8 flow accumulation algorithm (GIS industry standard)
+  - Flow direction calculation for all cells
+  - Topological sorting for O(n) accumulation
+  - River source identification based on flow threshold
+  - Path carving with depth/width scaling functions
+  - Multi-river network generation
+  - AddRiverCommand for undo/redo support
+- **Lake Generation System** (`src/features/water_body_generator.py`)
+  - Watershed segmentation for basin detection
+  - Depression detection with depth/size filtering
+  - Rim height calculation (pour point detection)
+  - Basin size estimation via flood fill
+  - Lake creation with shore transitions
+  - AddLakeCommand for undo/redo support
+- **Coastal Features System** (`src/features/coastal_generator.py`)
+  - Slope calculation using Sobel filters
+  - Coastline detection (land-water interface)
+  - Beach generation on gentle slopes (0-5 degrees)
+  - Cliff generation on steep slopes (45+ degrees)
+  - Distance-based intensity falloff
+  - AddCoastalFeaturesCommand for undo/redo support
+- **Comprehensive Test Suite** (`test_water_features.py`)
+  - 8 tests covering all water features
+  - Flow direction, accumulation, river carving
+  - Depression detection, lake filling
+  - Slope calculation, beach/cliff generation
+  - Command pattern integration testing
+
+### Changed
+- Added src/features/ module for terrain features
+- All water features use Command pattern (undoable)
+- Progress tracking integrated into all expensive operations
+- Documentation updated with Week 2 completion
+
+### Technical
+- D8 algorithm: O(n log n) sorting + O(n) accumulation = optimal
+- Watershed segmentation: mathematically defines natural basins
+- Slope-based coastal features: physically accurate (follows geomorphology)
+- All algorithms are industry-standard GIS methods
+- Zero arbitrary decisions - all parameters have physical meaning
+
 ## [1.1.0] - 2025-10-04
 
 ### Added - State Management System & Progress Tracking

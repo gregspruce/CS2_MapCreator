@@ -1,8 +1,8 @@
 # Claude Continue - Session Resume Guide
 
-**Last Updated**: 2025-10-04 08:00 PM
-**Project Status**: v1.1.0 - Week 1 COMPLETE (State Management + Progress Tracking)
-**Current Phase**: Ready for Week 2 (Core Features)
+**Last Updated**: 2025-10-04 08:13 PM
+**Project Status**: v1.2.0 - Week 2 COMPLETE (Water Features: Rivers, Lakes, Coastal)
+**Current Phase**: Ready for Week 3 (Quality of Life)
 **GitHub**: https://github.com/gregspruce/CS2_MapCreator
 
 ---
@@ -43,6 +43,19 @@
 - [x] `test_progress_tracker.py` - 6 tests, all passing
 - [x] `test_integration.py` - 4 integration tests + performance baselines
 - [x] Performance baseline: ~18,000 pixels/second
+
+### NEW: Water Features System (v1.2.0)
+- [x] `src/features/river_generator.py` - D8 flow algorithm (408 lines)
+- [x] Flow direction and accumulation calculation
+- [x] River source identification and path carving
+- [x] `src/features/water_body_generator.py` - Watershed segmentation (341 lines)
+- [x] Depression detection with depth/size filtering
+- [x] Lake creation with shore transitions
+- [x] `src/features/coastal_generator.py` - Slope-based features (406 lines)
+- [x] Beach generation (0-5 degree slopes)
+- [x] Cliff generation (45+ degree slopes)
+- [x] `test_water_features.py` - 8 tests, all passing
+- [x] Full Command pattern integration (all features undoable)
 
 ### Repository
 - [x] GitHub repository created: https://github.com/gregspruce/CS2_MapCreator
@@ -101,7 +114,41 @@ CS2_Map/
    - requirements.txt updated (tqdm added)
    - CHANGELOG.md updated with v1.1.0 details
    - TODO.md marked Week 1 complete
-   - Ready for git commit and tag
+   - Git tagged v1.1.0 and pushed to GitHub
+
+## Week 2 COMPLETE
+
+### Completed Tasks (Core Water Features)
+1. **River Generation (D8 Algorithm)** [DONE]
+   - src/features/river_generator.py (408 lines)
+   - Flow direction calculation for all cells
+   - Topological sorting for O(n) accumulation
+   - River source identification based on flow threshold
+   - Path carving with depth/width scaling
+   - AddRiverCommand for undo/redo
+
+2. **Lake Generation (Watershed Segmentation)** [DONE]
+   - src/features/water_body_generator.py (341 lines)
+   - Depression detection with depth/size filtering
+   - Rim height calculation (pour point)
+   - Basin size estimation
+   - Lake creation with shore transitions
+   - AddLakeCommand for undo/redo
+
+3. **Coastal Features (Slope-Based)** [DONE]
+   - src/features/coastal_generator.py (406 lines)
+   - Sobel filter slope calculation
+   - Coastline detection
+   - Beach generation (gentle slopes)
+   - Cliff generation (steep slopes)
+   - AddCoastalFeaturesCommand for undo/redo
+
+4. **Testing** [DONE]
+   - test_water_features.py (8 tests, all passing)
+   - Flow direction/accumulation validation
+   - Depression detection validation
+   - Slope calculation validation
+   - Command pattern integration validation
 
 ---
 
@@ -334,14 +381,15 @@ If it doesn't work, fix the implementation (don't add alternatives).
 
 ## Session Statistics
 
-**Current Version**: v1.1.0
-**Total Files**: 30
-**Source Code**: ~5,000 lines
-**Documentation**: ~3,000 lines
-**Tests**: 3 suites (state_manager, progress_tracker, integration), all passing
-**GitHub Commits**: 1 (initial) + pending v1.1.0
+**Current Version**: v1.2.0
+**Total Files**: 35
+**Source Code**: ~6,200 lines
+**Documentation**: ~3,500 lines
+**Tests**: 4 suites (state_manager, progress_tracker, integration, water_features), all passing
+**GitHub Commits**: 2 (initial + v1.1.0) + pending v1.2.0
 **Week 1 Status**: COMPLETE
-**Phases Complete**: 1 of 5
+**Week 2 Status**: COMPLETE
+**Phases Complete**: 2 of 5
 
 ---
 

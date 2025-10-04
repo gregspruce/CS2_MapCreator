@@ -29,23 +29,26 @@
 
 ---
 
-## Week 2: Core Map Features
+## Week 2: Core Map Features [COMPLETE]
 
-### Mandatory Water Features
-- [ ] **River network generation** (D8 flow accumulation algorithm)
-  - File: `src/features/river_generator.py`
-  - Methods: calculate_flow_accumulation, identify_sources, carve_path
+### Mandatory Water Features [ALL DONE]
+- [x] **River network generation** (D8 flow accumulation algorithm)
+  - File: `src/features/river_generator.py` (408 lines)
+  - Methods: calculate_flow_direction, calculate_flow_accumulation, identify_river_sources, carve_river_path
   - Command class: AddRiverCommand
+  - Algorithm: O(n log n) topological sort + O(n) accumulation
 
-- [ ] **Lake/depression detection and creation** (watershed segmentation)
-  - File: `src/features/water_body_generator.py`
-  - Methods: detect_depressions, fill_basin, create_lake
+- [x] **Lake/depression detection and creation** (watershed segmentation)
+  - File: `src/features/water_body_generator.py` (341 lines)
+  - Methods: detect_depressions, _find_rim_height, _estimate_basin_size, create_lake
   - Command class: AddLakeCommand
+  - Algorithm: Watershed segmentation with flood fill
 
-- [ ] **Coastal features** (beaches and cliffs)
-  - File: `src/features/coastal_generator.py`
-  - Methods: detect_coastline, add_beach, add_cliffs
+- [x] **Coastal features** (beaches and cliffs)
+  - File: `src/features/coastal_generator.py` (406 lines)
+  - Methods: calculate_slope, detect_coastline, add_beaches, add_cliffs
   - Command class: AddCoastalFeaturesCommand
+  - Algorithm: Sobel filter slope calculation + geomorphology rules
 
 ---
 
