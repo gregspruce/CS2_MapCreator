@@ -1,16 +1,25 @@
 # Cities Skylines 2 Heightmap Generator
 
-A comprehensive Python tool for generating custom heightmaps for Cities Skylines 2. Create realistic terrain using procedural noise algorithms, or design custom landscapes with precise control.
+**Version 2.0.0** - A professional Python tool for generating custom heightmaps for Cities Skylines 2. Features both CLI and GUI interfaces with full undo/redo, water features, and advanced terrain analysis.
 
 ## Features
 
+### Core Features
 - **16-bit Grayscale PNG Export**: CS2-compliant heightmap format
-- **Multiple Terrain Presets**: Rolling hills, mountains, islands, canyons, and more
-- **Procedural Generation**: Perlin noise, Simplex noise, ridged multifractal
-- **Worldmap Support**: Create extended terrain beyond the playable area
-- **Auto-Export to CS2**: Automatically detects and exports to CS2 directory
-- **Custom Terrain Design**: Combine techniques for unique landscapes
-- **Extensive Documentation**: Detailed comments and examples
+- **Dual Interfaces**: CLI for automation, GUI for visual editing
+- **7 Terrain Presets**: Flat, Hills, Mountains, Islands, Canyons, Highlands, Mesas
+- **Procedural Generation**: Perlin noise, Simplex noise, ridged multifractal, islands, canyons, mesas
+- **Auto-Export to CS2**: Automatically detects and exports to CS2 directory (Windows/macOS/Linux)
+
+### Advanced Features (v2.0)
+- **GUI Interface**: Tkinter-based visual editor with live preview
+- **State Management**: Full undo/redo support for all operations
+- **Water Features**: River networks (D8 algorithm), lake generation, coastal features (beaches/cliffs)
+- **Terrain Analysis**: Slope/aspect calculation, statistics, peak/valley detection
+- **Preview Generation**: Hillshade rendering, multiple colormaps, thumbnail export
+- **Preset Management**: Save/load/share custom terrain configurations
+- **Performance Optimizations**: LRU caching (30,000x speedup on repeated operations)
+- **Worldmap Support**: Extended terrain beyond playable area
 
 ## Installation
 
@@ -71,9 +80,57 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-## Quick Start
+## Usage
 
-### Generate Your First Heightmap
+The CS2 Heightmap Generator offers two interfaces:
+
+### GUI Mode (Recommended for New Users)
+
+Launch the visual interface:
+
+```bash
+python gui_main.py
+```
+
+**GUI Features:**
+- **Live Preview**: Real-time hillshade visualization with terrain colormap
+- **Parameter Controls**: 7 terrain presets + adjustable sliders (Scale, Octaves, Persistence, Lacunarity)
+- **Fixed Resolution**: 4096x4096 (CS2 requirement - not optional)
+- **Zoom & Pan**: Mouse wheel zoom (0.25x-4x), drag to pan
+- **Tool Palette**: Brush tools, feature tools, water features
+- **Menu Bar**: File operations (New, Open, Save, Export), Edit (Undo/Redo), View controls
+- **Keyboard Shortcuts**: Ctrl+N (New), Ctrl+S (Save), Ctrl+Z (Undo), Ctrl+Y (Redo)
+
+**Quick Workflow:**
+1. Launch GUI: `python gui_main.py`
+2. Select a preset (Mountains, Islands, etc.) from the left panel
+3. Adjust parameters using sliders (changes update after 500ms)
+4. Use File > Save to export heightmap
+5. Use File > Export to CS2 to copy directly to Cities Skylines 2
+
+### CLI Mode (For Automation)
+
+Generate heightmaps via command line:
+
+```bash
+python generate_map.py [preset] [map_name]
+```
+
+**Examples:**
+```bash
+# Generate with preset
+python generate_map.py mountains "Alpine Valley"
+
+# List available presets
+python generate_map.py --list
+
+# Show system info
+python generate_map.py --info
+```
+
+## Quick Start (Code)
+
+### Generate Your First Heightmap Programmatically
 
 ```python
 from src.heightmap_generator import HeightmapGenerator
@@ -108,13 +165,15 @@ python 04_custom_terrain.py       # Custom terrain design
 
 ## CS2 Heightmap Specifications
 
-Based on the official Cities Skylines 2 wiki:
+**CRITICAL**: Based on the official Cities Skylines 2 wiki, these specifications are **MANDATORY**:
 
-- **Resolution**: 4096x4096 pixels (playable area)
-- **Format**: 16-bit grayscale PNG or TIFF
-- **Height Scale**: Default 4096 meters (customizable)
+- **Resolution**: 4096x4096 pixels (**REQUIRED** - not optional)
+- **Format**: 16-bit grayscale PNG or TIFF (**REQUIRED**)
+- **Height Scale**: Default 4096 meters (customizable in game)
 - **Value Range**: 0 (lowest) to 65535 (highest)
 - **Location**: `C:/Users/[username]/AppData/LocalLow/Colossal Order/Cities Skylines II/Heightmaps/`
+
+**WARNING**: Heightmaps with any other resolution will NOT work in Cities Skylines 2. The game requires exactly 4096x4096 pixels.
 
 ### Worldmap Specifications
 

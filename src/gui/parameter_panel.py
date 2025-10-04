@@ -57,9 +57,11 @@ class ParameterPanel(ttk.Frame):
         self.gui = gui
 
         # Parameter values
+        # NOTE: Resolution is FIXED at 4096x4096 per CS2 wiki requirements
+        # This is NOT optional - CS2 requires exactly 4096x4096
         self.params = {
             'preset': tk.StringVar(value='mountains'),
-            'resolution': tk.IntVar(value=1024),
+            'resolution': tk.IntVar(value=4096),  # FIXED: CS2 requirement
             'scale': tk.DoubleVar(value=200.0),
             'octaves': tk.IntVar(value=6),
             'persistence': tk.DoubleVar(value=0.5),
@@ -93,8 +95,8 @@ class ParameterPanel(ttk.Frame):
 
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
 
-        # Resolution selector
-        self._create_resolution_selector()
+        # Resolution display (FIXED at 4096x4096 per CS2 requirements)
+        self._create_resolution_display()
 
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
 
@@ -136,22 +138,40 @@ class ParameterPanel(ttk.Frame):
             )
             rb.pack(anchor=tk.W)
 
-    def _create_resolution_selector(self):
-        """Create resolution dropdown."""
-        frame = ttk.LabelFrame(self, text="Resolution", padding=10)
+    def _create_resolution_display(self):
+        """
+        Display fixed resolution (not selectable).
+
+        Why fixed:
+        - CS2 wiki specifies heightmaps MUST be 4096x4096
+        - This is not optional - it's a game requirement
+        - 16-bit grayscale PNG format
+        - Default height scale: 4096 meters
+
+        Reference: wiki_instructions.pdf, page 1:
+        "Heightmaps should be 4096x4096 resolution"
+        """
+        frame = ttk.LabelFrame(self, text="Resolution (CS2 Requirement)", padding=10)
         frame.pack(fill=tk.X, padx=10, pady=5)
 
-        resolutions = [512, 1024, 2048, 4096, 8192]
-
-        res_combo = ttk.Combobox(
+        # Display fixed resolution with explanation
+        info_label = ttk.Label(
             frame,
-            textvariable=self.params['resolution'],
-            values=resolutions,
-            state='readonly',
-            width=15
+            text="4096 x 4096 pixels\n(Required by Cities Skylines 2)",
+            font=('Arial', 10, 'bold'),
+            justify=tk.CENTER
         )
-        res_combo.pack()
-        res_combo.bind('<<ComboboxSelected>>', self._on_resolution_change)
+        info_label.pack(pady=5)
+
+        # Add informational note
+        note_label = ttk.Label(
+            frame,
+            text="Resolution is fixed per CS2 specifications.\nAll heightmaps must be exactly 4096x4096.",
+            font=('Arial', 8),
+            justify=tk.CENTER,
+            foreground='gray30'
+        )
+        note_label.pack()
 
     def _create_parameter_sliders(self):
         """Create parameter sliders with labels."""
@@ -254,13 +274,7 @@ class ParameterPanel(ttk.Frame):
             # Trigger regeneration
             self.gui.schedule_update()
 
-    def _on_resolution_change(self, event=None):
-        """Handle resolution change."""
-        new_res = self.params['resolution'].get()
-        self.gui.resolution = new_res
-        self.gui.resolution_label.config(text=f"{new_res}x{new_res}")
-        # Note: Don't auto-regenerate on resolution change (expensive)
-        # User clicks Generate button when ready
+    # Resolution change handler removed - resolution is now fixed at 4096x4096
 
     def _on_parameter_change(self):
         """Handle parameter slider change."""

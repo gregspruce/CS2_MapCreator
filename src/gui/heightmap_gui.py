@@ -68,14 +68,18 @@ class HeightmapGUI(tk.Tk):
             pass
 
         # Initialize backend components
-        self.generator = HeightmapGenerator(resolution=1024)
+        # Resolution MUST be 4096x4096 per CS2 specifications
+        self.generator = HeightmapGenerator(resolution=4096)
         self.history = CommandHistory()
         self.noise_gen = NoiseGenerator()
         self.preset_mgr = PresetManager()
 
-        # Current heightmap (1024x1024 default)
-        self.heightmap = np.zeros((1024, 1024), dtype=np.float64)
-        self.resolution = 1024
+        # Current heightmap (MUST be 4096x4096 per CS2 wiki requirements)
+        # CS2 specification: Heightmaps MUST be exactly 4096x4096 resolution
+        # This is NOT optional - it's a game requirement
+        # Reference: wiki_instructions.pdf - "Heightmaps should be 4096x4096 resolution"
+        self.heightmap = np.zeros((4096, 4096), dtype=np.float64)
+        self.resolution = 4096  # FIXED: CS2 requirement, not user-selectable
 
         # Debounce timer for parameter updates
         self._update_timer = None
@@ -90,8 +94,9 @@ class HeightmapGUI(tk.Tk):
         # Bind keyboard shortcuts
         self._bind_shortcuts()
 
-        # Generate initial terrain
-        self._generate_default_terrain()
+        # Schedule initial terrain generation after window is shown
+        # Why after_idle: Allows window to render first, prevents freeze
+        self.after_idle(self._generate_default_terrain)
 
     def _create_menu_bar(self):
         """Create the menu bar."""
@@ -201,8 +206,29 @@ class HeightmapGUI(tk.Tk):
         self.bind("<Control-0>", lambda e: self.zoom_fit())
 
     def _generate_default_terrain(self):
-        """Generate default terrain on startup."""
-        self.set_status("Generating default terrain...")
+        """
+        Generate default terrain on startup.
+
+        Why after_idle:
+        - Called after window is fully rendered
+        - Prevents GUI freeze during init
+        - User sees window immediately
+        - Status bar shows "Generating..." feedback
+
+        Performance note:
+        - 4096x4096 takes ~60-120 seconds (CS2 requirement, not optional)
+        - User sees progress in status bar
+        - This is the ONLY valid resolution for CS2 heightmaps
+
+        CS2 Specification (wiki_instructions.pdf):
+        - Heightmaps MUST be 4096x4096 resolution
+        - Format: 16-bit grayscale PNG or TIFF
+        - Default height scale: 4096 meters
+        """
+        self.set_status("Generating terrain (4096x4096, may take 1-2 minutes)...")
+        self.update_idletasks()  # Force status update
+
+        # Generate terrain at CS2-required resolution (4096x4096)
         self.heightmap = self.noise_gen.generate_perlin(
             resolution=self.resolution,
             scale=200.0,
@@ -211,6 +237,7 @@ class HeightmapGUI(tk.Tk):
             lacunarity=2.0,
             show_progress=False
         )
+
         self.update_preview()
         self.set_status("Ready")
 
