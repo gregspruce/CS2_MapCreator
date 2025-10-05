@@ -20,6 +20,11 @@ Why This Design:
 import tkinter as tk
 from tkinter import ttk
 from typing import Dict, Callable, Optional
+from ..terrain_parameter_mapper import (
+    TerrainParameterMapper,
+    get_preset_parameters,
+    get_preset_description
+)
 
 
 class ParameterPanel(ttk.Frame):
@@ -56,31 +61,22 @@ class ParameterPanel(ttk.Frame):
         super().__init__(parent, width=300)
         self.gui = gui
 
-        # Parameter values
+        # Intuitive parameter values (what users actually understand)
         # NOTE: Resolution is FIXED at 4096x4096 per CS2 wiki requirements
-        # This is NOT optional - CS2 requires exactly 4096x4096
         self.params = {
             'preset': tk.StringVar(value='mountains'),
             'resolution': tk.IntVar(value=4096),  # FIXED: CS2 requirement
-            'scale': tk.DoubleVar(value=200.0),
-            'octaves': tk.IntVar(value=6),
-            'persistence': tk.DoubleVar(value=0.5),
-            'lacunarity': tk.DoubleVar(value=2.0)
+            'roughness': tk.DoubleVar(value=70.0),  # 0-100: smooth ↔ jagged
+            'feature_size': tk.DoubleVar(value=60.0),  # 0-100: small ↔ large
+            'detail_level': tk.DoubleVar(value=75.0),  # 0-100: simple ↔ intricate
+            'height_variation': tk.DoubleVar(value=85.0)  # 0-100: flat ↔ extreme
         }
+
+        # Advanced mode (technical parameters) - hidden by default
+        self.show_advanced = tk.BooleanVar(value=False)
 
         # Create widgets
         self._create_widgets()
-
-        # Preset definitions (matches existing presets)
-        self.preset_params = {
-            'flat': {'scale': 500.0, 'octaves': 2, 'persistence': 0.3, 'lacunarity': 2.0},
-            'hills': {'scale': 150.0, 'octaves': 4, 'persistence': 0.5, 'lacunarity': 2.0},
-            'mountains': {'scale': 200.0, 'octaves': 6, 'persistence': 0.5, 'lacunarity': 2.0},
-            'islands': {'scale': 100.0, 'octaves': 5, 'persistence': 0.6, 'lacunarity': 2.0},
-            'canyons': {'scale': 80.0, 'octaves': 6, 'persistence': 0.4, 'lacunarity': 2.5},
-            'highlands': {'scale': 120.0, 'octaves': 5, 'persistence': 0.5, 'lacunarity': 2.0},
-            'mesas': {'scale': 100.0, 'octaves': 4, 'persistence': 0.3, 'lacunarity': 2.5}
-        }
 
     def _create_widgets(self):
         """Create all parameter control widgets."""
@@ -174,53 +170,57 @@ class ParameterPanel(ttk.Frame):
         note_label.pack()
 
     def _create_parameter_sliders(self):
-        """Create parameter sliders with labels."""
-        frame = ttk.LabelFrame(self, text="Noise Parameters", padding=10)
+        """Create intuitive parameter sliders with labels."""
+        frame = ttk.LabelFrame(self, text="Terrain Characteristics", padding=10)
         frame.pack(fill=tk.X, padx=10, pady=5)
 
-        # Scale slider (10-500)
+        # Roughness slider (0-100%)
         self._create_slider(
             frame,
-            "Scale:",
-            self.params['scale'],
-            from_=10.0,
-            to=500.0,
-            resolution=5.0
+            "Roughness:",
+            self.params['roughness'],
+            from_=0.0,
+            to=100.0,
+            resolution=1.0,
+            description="smooth ↔ jagged"
         )
 
-        # Octaves slider (1-10)
+        # Feature Size slider (0-100%)
         self._create_slider(
             frame,
-            "Octaves:",
-            self.params['octaves'],
-            from_=1,
-            to=10,
-            resolution=1
+            "Feature Size:",
+            self.params['feature_size'],
+            from_=0.0,
+            to=100.0,
+            resolution=1.0,
+            description="small ↔ large"
         )
 
-        # Persistence slider (0.1-0.9)
+        # Detail Level slider (0-100%)
         self._create_slider(
             frame,
-            "Persistence:",
-            self.params['persistence'],
-            from_=0.1,
-            to=0.9,
-            resolution=0.05
+            "Detail Level:",
+            self.params['detail_level'],
+            from_=0.0,
+            to=100.0,
+            resolution=1.0,
+            description="simple ↔ intricate"
         )
 
-        # Lacunarity slider (1.5-3.5)
+        # Height Variation slider (0-100%)
         self._create_slider(
             frame,
-            "Lacunarity:",
-            self.params['lacunarity'],
-            from_=1.5,
-            to=3.5,
-            resolution=0.1
+            "Height Variation:",
+            self.params['height_variation'],
+            from_=0.0,
+            to=100.0,
+            resolution=1.0,
+            description="flat ↔ extreme"
         )
 
-    def _create_slider(self, parent, label: str, variable, from_: float, to: float, resolution: float):
+    def _create_slider(self, parent, label: str, variable, from_: float, to: float, resolution: float, description: str = ""):
         """
-        Create a labeled slider with value display.
+        Create a labeled slider with value display and description.
 
         Args:
             parent: Parent widget
@@ -229,23 +229,32 @@ class ParameterPanel(ttk.Frame):
             from_: Minimum value
             to: Maximum value
             resolution: Step size
+            description: Optional description text (e.g., "smooth ↔ jagged")
 
         Why this pattern:
         - Label shows what parameter is
-        - Value display shows current value
+        - Value display shows current value (with % for 0-100 range)
+        - Description shows what the range means
         - Slider for intuitive adjustment
-        - Standard pattern in audio/video software
         """
         # Container frame
         container = ttk.Frame(parent)
-        container.pack(fill=tk.X, pady=5)
+        container.pack(fill=tk.X, pady=8)
 
         # Label and value
         label_frame = ttk.Frame(container)
         label_frame.pack(fill=tk.X)
 
-        ttk.Label(label_frame, text=label, width=12, anchor=tk.W).pack(side=tk.LEFT)
-        value_label = ttk.Label(label_frame, textvariable=variable, width=8, anchor=tk.E)
+        ttk.Label(label_frame, text=label, width=15, anchor=tk.W).pack(side=tk.LEFT)
+
+        # Format value with % for 0-100 ranges
+        if from_ == 0.0 and to == 100.0:
+            value_text = tk.StringVar()
+            value_text.set(f"{variable.get():.0f}%")
+            variable.trace_add('write', lambda *args: value_text.set(f"{variable.get():.0f}%"))
+            value_label = ttk.Label(label_frame, textvariable=value_text, width=8, anchor=tk.E)
+        else:
+            value_label = ttk.Label(label_frame, textvariable=variable, width=8, anchor=tk.E)
         value_label.pack(side=tk.RIGHT)
 
         # Slider
@@ -259,20 +268,36 @@ class ParameterPanel(ttk.Frame):
         )
         slider.pack(fill=tk.X)
 
+        # Description (if provided)
+        if description:
+            desc_label = ttk.Label(
+                container,
+                text=description,
+                font=('Arial', 8, 'italic'),
+                foreground='gray40'
+            )
+            desc_label.pack()
+
     def _on_preset_change(self):
-        """Handle preset selection change."""
+        """Handle preset selection change - updates intuitive parameters."""
         preset = self.params['preset'].get()
 
-        if preset in self.preset_params:
-            # Update parameters from preset
-            params = self.preset_params[preset]
-            self.params['scale'].set(params['scale'])
-            self.params['octaves'].set(params['octaves'])
-            self.params['persistence'].set(params['persistence'])
-            self.params['lacunarity'].set(params['lacunarity'])
+        try:
+            # Get intuitive parameters for this preset
+            params = get_preset_parameters(preset)
+
+            # Update intuitive parameter sliders
+            self.params['roughness'].set(params['roughness'])
+            self.params['feature_size'].set(params['feature_size'])
+            self.params['detail_level'].set(params['detail_level'])
+            self.params['height_variation'].set(params['height_variation'])
 
             # Trigger regeneration
             self.gui.schedule_update()
+
+        except KeyError:
+            # Unknown preset, ignore
+            pass
 
     # Resolution change handler removed - resolution is now fixed at 4096x4096
 
@@ -287,30 +312,30 @@ class ParameterPanel(ttk.Frame):
 
     def get_parameters(self) -> Dict:
         """
-        Get current parameter values.
+        Get current intuitive parameter values.
 
         Returns:
-            Dictionary of parameter values
+            Dictionary of intuitive parameter values
 
         Used by:
-        - Main GUI for terrain generation
+        - Main GUI for terrain generation (converts to technical params)
         - Preset saving/loading
         """
         return {
             'preset': self.params['preset'].get(),
             'resolution': self.params['resolution'].get(),
-            'scale': self.params['scale'].get(),
-            'octaves': self.params['octaves'].get(),
-            'persistence': self.params['persistence'].get(),
-            'lacunarity': self.params['lacunarity'].get()
+            'roughness': self.params['roughness'].get(),
+            'feature_size': self.params['feature_size'].get(),
+            'detail_level': self.params['detail_level'].get(),
+            'height_variation': self.params['height_variation'].get()
         }
 
     def set_parameters(self, params: Dict):
         """
-        Set parameter values.
+        Set intuitive parameter values.
 
         Args:
-            params: Dictionary of parameter values
+            params: Dictionary of intuitive parameter values
 
         Used for:
         - Loading presets
@@ -320,11 +345,11 @@ class ParameterPanel(ttk.Frame):
             self.params['preset'].set(params['preset'])
         if 'resolution' in params:
             self.params['resolution'].set(params['resolution'])
-        if 'scale' in params:
-            self.params['scale'].set(params['scale'])
-        if 'octaves' in params:
-            self.params['octaves'].set(params['octaves'])
-        if 'persistence' in params:
-            self.params['persistence'].set(params['persistence'])
-        if 'lacunarity' in params:
-            self.params['lacunarity'].set(params['lacunarity'])
+        if 'roughness' in params:
+            self.params['roughness'].set(params['roughness'])
+        if 'feature_size' in params:
+            self.params['feature_size'].set(params['feature_size'])
+        if 'detail_level' in params:
+            self.params['detail_level'].set(params['detail_level'])
+        if 'height_variation' in params:
+            self.params['height_variation'].set(params['height_variation'])

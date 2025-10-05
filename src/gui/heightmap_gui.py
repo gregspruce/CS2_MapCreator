@@ -28,6 +28,7 @@ from ..state_manager import CommandHistory
 from ..noise_generator import NoiseGenerator
 from ..preview_generator import PreviewGenerator
 from ..preset_manager import PresetManager
+from ..terrain_parameter_mapper import TerrainParameterMapper
 from .preview_canvas import PreviewCanvas
 from .parameter_panel import ParameterPanel
 from .tool_palette import ToolPalette
@@ -380,7 +381,16 @@ class HeightmapGUI(tk.Tk):
         - Background thread keeps UI responsive
         - Progress dialog shows user something is happening
         """
-        params = self.param_panel.get_parameters()
+        # Get intuitive parameters from UI
+        intuitive_params = self.param_panel.get_parameters()
+
+        # Convert to technical noise parameters
+        technical_params = TerrainParameterMapper.intuitive_to_technical(
+            roughness=intuitive_params['roughness'],
+            feature_size=intuitive_params['feature_size'],
+            detail_level=intuitive_params['detail_level'],
+            height_variation=intuitive_params['height_variation']
+        )
 
         # Create progress dialog
         progress_dialog = ProgressDialog(
@@ -393,14 +403,20 @@ class HeightmapGUI(tk.Tk):
         def generate_in_background():
             """Run generation in background thread."""
             try:
-                # Generate using noise generator
+                # Generate using noise generator with technical parameters
                 heightmap = self.noise_gen.generate_perlin(
                     resolution=self.resolution,
-                    scale=params['scale'],
-                    octaves=params['octaves'],
-                    persistence=params['persistence'],
-                    lacunarity=params['lacunarity'],
+                    scale=technical_params['scale'],
+                    octaves=technical_params['octaves'],
+                    persistence=technical_params['persistence'],
+                    lacunarity=technical_params['lacunarity'],
                     show_progress=False
+                )
+
+                # Apply height variation post-processing
+                heightmap = TerrainParameterMapper.apply_height_variation(
+                    heightmap,
+                    technical_params['height_multiplier']
                 )
 
                 # Update UI on main thread (Tkinter requirement)
