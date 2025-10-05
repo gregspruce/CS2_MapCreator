@@ -498,6 +498,8 @@ class HeightmapGUI(tk.Tk):
         """Undo the last operation."""
         if self.history.can_undo():
             self.history.undo()
+            # CRITICAL FIX: Update GUI heightmap from generator after undo
+            self.heightmap = self.generator.heightmap.copy()
             self.update_preview()
             self.set_status("Undo successful")
         else:
@@ -507,6 +509,8 @@ class HeightmapGUI(tk.Tk):
         """Redo the last undone operation."""
         if self.history.can_redo():
             self.history.redo()
+            # CRITICAL FIX: Update GUI heightmap from generator after redo
+            self.heightmap = self.generator.heightmap.copy()
             self.update_preview()
             self.set_status("Redo successful")
         else:

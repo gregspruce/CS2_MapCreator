@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Undo/Redo - CRITICAL FIX**: Fixed undo and redo buttons not actually reverting changes
+  - Root cause: `undo()` and `redo()` called `history.undo/redo()` but never updated `self.heightmap` from generator
+  - The generator's heightmap was reverted, but GUI's heightmap stayed at post-operation state
+  - Subsequent operations used wrong heightmap, undo appeared broken
+  - Fix: Added `self.heightmap = self.generator.heightmap.copy()` to both methods
+  - File: `src/gui/heightmap_gui.py:502,513`
+
 - **Water Features - CRITICAL FIX**: Fixed all three water features completely destroying terrain
   - **Coastal features**: Was flattening entire map to single elevation (FIXED)
   - **Rivers**: Was flattening entire map (FIXED)
