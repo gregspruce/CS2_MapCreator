@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Water Features Still Broken - ROOT CAUSE FIXED**: Generator heightmap never updated after terrain generation
+  - **THE REAL BUG**: `generate_terrain()` updated `self.heightmap` but NEVER `self.generator.heightmap`
+  - When adding water features, they used `self.generator.heightmap` which was still all zeros!
+  - Result: Water features operated on zeros → returned zeros → flattened entire map
+  - **Fix**: Added `self.generator.heightmap = heightmap.copy()` after terrain generation (line 605)
+  - File: `src/gui/heightmap_gui.py:605`
+  - **This was the root cause all along** - delta upsampling was correct but operating on zeros!
+
 - **Undo/Redo - CRITICAL FIX**: Fixed undo and redo buttons not actually reverting changes
   - Root cause: `undo()` and `redo()` called `history.undo/redo()` but never updated `self.heightmap` from generator
   - The generator's heightmap was reverted, but GUI's heightmap stayed at post-operation state
