@@ -164,8 +164,8 @@ C:/Users/[username]/AppData/LocalLow/Colossal Order/Cities Skylines II/Heightmap
 
 - Read the full [README.md](README.md) for detailed documentation
 - Check [examples/](examples/) for Python scripting examples
-- Review [CHANGELOG.md](CHANGELOG.md) for version history
-- See [TODO.md](TODO.md) for future features
+- Review [docs/CHANGELOG.md](docs/CHANGELOG.md) for version history
+- See [docs/TODO.md](docs/TODO.md) for future features
 
 ## Need Help?
 

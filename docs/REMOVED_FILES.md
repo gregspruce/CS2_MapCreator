@@ -1,8 +1,50 @@
 # Removed Files Log
 
-This document tracks files removed from the repository to maintain organization.
+This document tracks files removed or moved from the repository to maintain organization.
 
-## 2025-10-05: Repository Cleanup
+## 2025-10-05: Repository Reorganization (Structure)
+
+**Reason**: Per CLAUDE.md requirement to keep repository organized. Root directory had 15+ files causing clutter.
+
+**Actions**: Reorganized into standard Python project structure with tests/ and docs/ subdirectories.
+
+### Files Moved (NOT Removed)
+
+**To tests/ directory (7 test files):**
+- test_gui.py
+- test_integration.py
+- test_performance.py
+- test_progress_tracker.py
+- test_qol_features.py
+- test_state_manager.py
+- test_water_features.py
+
+**To docs/ directory (4 documentation files):**
+- CHANGELOG.md
+- TODO.md
+- REMOVED_FILES.md (this file)
+- claude_continue.md
+
+**Updated references:**
+- QUICKSTART.md: Updated links to docs/CHANGELOG.md and docs/TODO.md
+
+### New Structure
+
+**Root (10 essential files - clean):**
+- README.md, QUICKSTART.md, CLAUDE.md
+- requirements.txt, .gitignore
+- setup_env.bat, setup_env.sh
+- generate_map.py, gui_main.py
+- wiki_instructions.pdf
+
+**Organized subdirectories:**
+- src/ - Core library code
+- examples/ - Working examples
+- tests/ - All test files (NEW)
+- docs/ - Documentation (NEW)
+- output/ - Generated heightmaps
+
+## 2025-10-05: Repository Cleanup (Obsolete Files)
 
 **Reason**: Per CLAUDE.md requirement to keep repository organized and remove obsolete files.
 
