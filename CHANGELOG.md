@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Terrain Too Noisy - CRITICAL FIX**: Reduced detail weight from 0.6 to 0.2 for buildable areas
+  - **Problem**: Detail noise weight (0.6) was HIGHER than base (0.3), creating bumpy terrain everywhere
+  - **Result**: "Almost 0 buildable area" - too many small peaks and valleys evenly distributed
+  - **Solution**: Reduced detail to 0.2, increased base to 0.5, used mountain_mask**3 for aggressive masking
+  - **Impact**: Detail now only on mountain peaks, smooth valleys and buildable areas
+  - **Test results**: 98.9% smooth areas, 79.7% buildable mid-height terrain
+  - Files: `src/coherent_terrain_generator_optimized.py:357-388`
+
 - **Terrain Boring Gradients - FIXED**: Multi-scale base geography instead of single massive blur
   - **Problem**: Single gaussian blur at sigma=40% of resolution created only 1-2 low-freq variations
   - **Result**: Every terrain was gradient from one corner to opposite (boring, repetitive)

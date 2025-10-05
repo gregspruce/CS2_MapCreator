@@ -354,17 +354,20 @@ class CoherentTerrainGenerator:
 
         if terrain_type == 'mountains':
             # Mountains: Base + Ranges + Detail (heavily masked)
+            # CRITICAL: Keep detail weight LOW to create buildable valleys
             composed = (
-                base_norm * 0.3 +                          # Base elevation zones
+                base_norm * 0.5 +                          # Base elevation zones (INCREASED for smoother valleys)
                 ranges_norm * 0.4 * mountain_mask +        # Range structure (masked)
-                detail_norm * 0.6 * (mountain_mask ** 2)   # Detail only in mountain zones
+                detail_norm * 0.2 * (mountain_mask ** 3)   # Detail ONLY on peaks (REDUCED + more aggressive mask)
             )
 
         elif terrain_type == 'hills':
             # Hills: Gentle base + light detail everywhere
+            # Keep smooth for building
             composed = (
-                base_norm * 0.5 +                          # Gentle base
-                detail_norm * 0.5 * mountain_mask          # Moderate detail
+                base_norm * 0.6 +                          # Gentle base (INCREASED)
+                ranges_norm * 0.2 * mountain_mask +        # Some variation
+                detail_norm * 0.3 * mountain_mask          # Light detail (REDUCED)
             )
 
         elif terrain_type == 'islands':
@@ -377,10 +380,11 @@ class CoherentTerrainGenerator:
 
         elif terrain_type == 'highlands':
             # Highlands: High base + moderate ranges
+            # Should be relatively flat plateau with some variation
             composed = (
-                base_norm * 0.6 +                          # High plateau
+                base_norm * 0.7 +                          # High plateau (INCREASED for flatness)
                 ranges_norm * 0.2 * mountain_mask +        # Some ranges
-                detail_norm * 0.3 * mountain_mask          # Moderate detail
+                detail_norm * 0.15 * mountain_mask         # Minimal detail (REDUCED)
             )
 
         elif terrain_type == 'canyons':
