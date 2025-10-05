@@ -84,6 +84,10 @@ class HeightmapGUI(tk.Tk):
         self.heightmap = np.zeros((4096, 4096), dtype=np.float64)
         self.resolution = 4096  # FIXED: CS2 requirement, not user-selectable
 
+        # Worldmap (optional, generated separately)
+        self.worldmap = None  # Will be WorldmapGenerator instance when generated
+        self.has_worldmap = False
+
         # Debounce timer for parameter updates
         self._update_timer = None
         self._pending_update = False
@@ -139,6 +143,8 @@ class HeightmapGUI(tk.Tk):
         # Tools menu
         tools_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Tools", menu=tools_menu)
+        tools_menu.add_command(label="Generate Worldmap", command=self.generate_worldmap)
+        tools_menu.add_separator()
         tools_menu.add_command(label="Generate Rivers", command=self.add_rivers)
         tools_menu.add_command(label="Generate Lakes", command=self.add_lakes)
         tools_menu.add_command(label="Add Coastal Features", command=self.add_coastal)
@@ -163,7 +169,8 @@ class HeightmapGUI(tk.Tk):
         ttk.Button(toolbar, text="Undo", command=self.undo, width=8).pack(side=tk.LEFT, padx=2)
         ttk.Button(toolbar, text="Redo", command=self.redo, width=8).pack(side=tk.LEFT, padx=2)
         ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
-        ttk.Button(toolbar, text="Generate", command=self.generate_terrain, width=10).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="Generate Playable", command=self.generate_terrain, width=15).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="Generate Worldmap", command=self.generate_worldmap, width=15).pack(side=tk.LEFT, padx=2)
 
     def _create_main_layout(self):
         """Create the main layout with panels."""
@@ -186,12 +193,23 @@ class HeightmapGUI(tk.Tk):
         main_paned.add(self.tool_palette, weight=0)
 
     def _create_status_bar(self):
-        """Create the status bar."""
+        """Create the status bar with generation status indicators."""
         self.status_bar = ttk.Frame(self, relief=tk.SUNKEN, borderwidth=1)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
         self.status_label = ttk.Label(self.status_bar, text="Ready", anchor=tk.W)
         self.status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # Status indicators for what's been generated
+        self.worldmap_status = ttk.Label(self.status_bar, text="Worldmap: ✗", foreground='gray')
+        self.worldmap_status.pack(side=tk.RIGHT, padx=5)
+
+        ttk.Separator(self.status_bar, orient=tk.VERTICAL).pack(side=tk.RIGHT, fill=tk.Y, padx=2)
+
+        self.playable_status = ttk.Label(self.status_bar, text="Playable: —", foreground='gray')
+        self.playable_status.pack(side=tk.RIGHT, padx=5)
+
+        ttk.Separator(self.status_bar, orient=tk.VERTICAL).pack(side=tk.RIGHT, fill=tk.Y, padx=2)
 
         self.resolution_label = ttk.Label(self.status_bar, text=f"{self.resolution}x{self.resolution}")
         self.resolution_label.pack(side=tk.RIGHT, padx=5)
@@ -444,7 +462,10 @@ class HeightmapGUI(tk.Tk):
         self.heightmap = heightmap
         self.update_preview()
         progress_dialog.close()
-        self.set_status("Terrain generated successfully")
+
+        # Update status indicators
+        self.playable_status.config(text="Playable: ✓", foreground='green')
+        self.set_status("Playable area generated successfully")
 
     def _on_generation_error(self, error_msg: str, progress_dialog: ProgressDialog):
         """
@@ -473,6 +494,82 @@ class HeightmapGUI(tk.Tk):
     def toggle_grid(self):
         """Toggle grid overlay."""
         self.preview.toggle_grid()
+
+    def generate_worldmap(self):
+        """
+        Generate worldmap from current playable heightmap.
+
+        Worldmap shows terrain beyond the playable area for visual context.
+        Only generate after playable area is finalized (performance optimization).
+        """
+        # Check if playable heightmap exists
+        if self.heightmap is None or np.all(self.heightmap == 0):
+            messagebox.showwarning(
+                "No Playable Area",
+                "Please generate the playable area first.\n\n"
+                "The worldmap embeds the playable area, so you need to "
+                "create that before generating the worldmap."
+            )
+            return
+
+        # Confirm generation (takes time)
+        if not messagebox.askyesno(
+            "Generate Worldmap",
+            "Generate worldmap from current playable area?\n\n"
+            "This will create terrain surrounding the playable area.\n"
+            "Generation may take 1-2 minutes."
+        ):
+            return
+
+        # Create progress dialog
+        progress_dialog = ProgressDialog(
+            self,
+            title="Generating Worldmap",
+            message=f"Generating worldmap with embedded playable area...\nThis may take 1-2 minutes.",
+            cancelable=False
+        )
+
+        def generate_worldmap_in_background():
+            """Run worldmap generation in background thread."""
+            try:
+                from ..worldmap_generator import WorldmapGenerator, create_worldmap_preset
+
+                # Create worldmap with ocean surrounding
+                worldmap_gen = create_worldmap_preset(
+                    preset='ocean',
+                    playable_heightmap=self.heightmap,
+                    noise_generator=self.noise_gen
+                )
+
+                # Update UI on main thread
+                self.after(0, lambda: self._on_worldmap_complete(worldmap_gen, progress_dialog))
+
+            except Exception as e:
+                # Handle errors on main thread
+                self.after(0, lambda: self._on_generation_error(str(e), progress_dialog))
+
+        # Start background thread
+        thread = threading.Thread(target=generate_worldmap_in_background, daemon=True)
+        thread.start()
+
+        # Show progress dialog
+        progress_dialog.show()
+
+    def _on_worldmap_complete(self, worldmap_gen, progress_dialog: ProgressDialog):
+        """Called when worldmap generation completes."""
+        self.worldmap = worldmap_gen
+        self.has_worldmap = True
+        progress_dialog.close()
+
+        # Update status indicator
+        self.worldmap_status.config(text="Worldmap: ✓", foreground='green')
+        self.set_status("Worldmap generated successfully")
+
+        messagebox.showinfo(
+            "Worldmap Complete",
+            "Worldmap generated successfully!\n\n"
+            "When you save/export, both the playable area and worldmap will be included."
+        )
 
     def add_rivers(self):
         """Add rivers to the heightmap."""
