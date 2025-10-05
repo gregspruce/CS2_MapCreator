@@ -261,6 +261,173 @@ class PreviewGenerator:
 
         return blend
 
+    def generate_color_scale_legend(self,
+                                   colormap: str = 'terrain',
+                                   width: int = 30,
+                                   height: int = 200,
+                                   show_labels: bool = True,
+                                   height_scale_meters: Optional[float] = None) -> np.ndarray:
+        """
+        Generate a vertical color scale legend showing elevation colors.
+
+        Args:
+            colormap: Color scheme to use ('terrain', 'elevation', 'grayscale')
+            width: Width of legend bar in pixels
+            height: Height of legend bar in pixels
+            show_labels: Add elevation labels to the legend
+            height_scale_meters: Real height scale for labels (default: self.height_scale)
+
+        Returns:
+            RGB image array with legend (includes labels if show_labels=True)
+
+        Why a legend is essential:
+        - Users need to know what colors represent what elevations
+        - Standard practice in all mapping software
+        - Enables quantitative interpretation of terrain
+        """
+        if height_scale_meters is None:
+            height_scale_meters = self.height_scale
+
+        # Create vertical gradient (high elevation at top, low at bottom)
+        gradient = np.linspace(1.0, 0.0, height)[:, np.newaxis]
+        gradient = np.repeat(gradient, width, axis=1)
+
+        # Create temporary preview generator with gradient
+        temp_heightmap = gradient
+        temp_gen = PreviewGenerator(temp_heightmap, height_scale_meters)
+
+        # Apply the same colormap
+        legend_colors = temp_gen.apply_colormap(colormap=colormap, min_height=0.0, max_height=1.0)
+
+        if show_labels:
+            # Add labels: will be added by the GUI overlay
+            # For now, just return the color bar
+            # Labels are added by draw_legend_with_labels() in the GUI
+            pass
+
+        return legend_colors
+
+    def draw_legend_with_labels(self,
+                               preview_image: np.ndarray,
+                               colormap: str = 'terrain',
+                               position: str = 'right',
+                               height_scale_meters: Optional[float] = None) -> np.ndarray:
+        """
+        Draw color scale legend with labels on the preview image.
+
+        Args:
+            preview_image: Base preview image (RGB array)
+            colormap: Color scheme used in preview
+            position: 'right', 'left', 'top', 'bottom'
+            height_scale_meters: Real height scale for labels
+
+        Returns:
+            Preview image with legend overlay
+
+        Legend design:
+        - Semi-transparent background for legend area
+        - Color gradient bar showing elevation colors
+        - Text labels at key elevations (0m, 1000m, 2000m, etc.)
+        - Positioned to not obscure terrain details
+        """
+        from PIL import Image, ImageDraw, ImageFont
+
+        if height_scale_meters is None:
+            height_scale_meters = self.height_scale
+
+        # Convert to PIL Image for drawing
+        img = Image.fromarray(preview_image)
+        draw = ImageDraw.Draw(img, 'RGBA')
+
+        # Legend dimensions
+        legend_width = 60
+        legend_height = 250
+        margin = 20
+
+        # Position legend
+        img_height, img_width = preview_image.shape[:2]
+
+        if position == 'right':
+            legend_x = img_width - legend_width - margin
+            legend_y = margin
+        elif position == 'left':
+            legend_x = margin
+            legend_y = margin
+        elif position == 'bottom':
+            legend_x = img_width - legend_width - margin
+            legend_y = img_height - legend_height - margin
+        else:  # top
+            legend_x = img_width - legend_width - margin
+            legend_y = margin
+
+        # Draw semi-transparent background
+        background_padding = 10
+        draw.rectangle(
+            [legend_x - background_padding, legend_y - background_padding,
+             legend_x + legend_width + background_padding + 80,
+             legend_y + legend_height + background_padding],
+            fill=(255, 255, 255, 200)
+        )
+
+        # Generate color scale legend
+        legend_colors = self.generate_color_scale_legend(
+            colormap=colormap,
+            width=30,
+            height=legend_height,
+            show_labels=False,
+            height_scale_meters=height_scale_meters
+        )
+
+        # Paste legend colors
+        legend_img = Image.fromarray(legend_colors)
+        img.paste(legend_img, (legend_x, legend_y))
+
+        # Add labels
+        try:
+            # Try to use a nice font
+            font = ImageFont.truetype("arial.ttf", 12)
+        except:
+            # Fallback to default
+            font = ImageFont.load_default()
+
+        # Draw elevation labels
+        num_labels = 5
+        for i in range(num_labels):
+            # Calculate elevation for this label
+            fraction = i / (num_labels - 1)  # 0.0 to 1.0
+            elevation_meters = height_scale_meters * (1.0 - fraction)  # High at top
+
+            # Position for label
+            label_y = legend_y + int(fraction * legend_height)
+            label_x = legend_x + 35
+
+            # Format elevation
+            if elevation_meters >= 1000:
+                label_text = f"{elevation_meters/1000:.1f}km"
+            else:
+                label_text = f"{int(elevation_meters)}m"
+
+            # Draw label with shadow for readability
+            draw.text((label_x + 1, label_y - 6 + 1), label_text, fill=(0, 0, 0, 180), font=font)
+            draw.text((label_x, label_y - 6), label_text, fill=(0, 0, 0, 255), font=font)
+
+        # Add title
+        try:
+            title_font = ImageFont.truetype("arial.ttf", 10)
+        except:
+            title_font = font
+
+        title = "Elevation"
+        title_bbox = draw.textbbox((0, 0), title, font=title_font)
+        title_width = title_bbox[2] - title_bbox[0]
+        title_x = legend_x + (legend_width - title_width) // 2
+        title_y = legend_y - 18
+
+        draw.text((title_x + 1, title_y + 1), title, fill=(0, 0, 0, 180), font=title_font)
+        draw.text((title_x, title_y), title, fill=(0, 0, 0, 255), font=title_font)
+
+        return np.array(img)
+
     def generate_thumbnail(self,
                           size: Tuple[int, int] = (512, 512),
                           show_hillshade: bool = True,

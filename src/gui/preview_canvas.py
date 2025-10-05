@@ -83,10 +83,18 @@ class PreviewCanvas(tk.Canvas):
         self.pan_start_y = 0
         self.is_panning = False
 
+        # Two-point tool state (for ridge/valley)
+        self.first_point = None  # (x, y) in heightmap coordinates
+        self.preview_line_id = None  # Canvas line ID for visual feedback
+        self.is_two_point_tool = False
+
+        # Tool callback (set by parent GUI)
+        self.tool_callback = None
+
         # Bind mouse events
-        self.bind("<ButtonPress-1>", self._on_pan_start)
-        self.bind("<B1-Motion>", self._on_pan_move)
-        self.bind("<ButtonRelease-1>", self._on_pan_end)
+        self.bind("<ButtonPress-1>", self._on_mouse_press)
+        self.bind("<B1-Motion>", self._on_mouse_drag)
+        self.bind("<ButtonRelease-1>", self._on_mouse_release)
         self.bind("<MouseWheel>", self._on_mouse_wheel)  # Windows
         self.bind("<Button-4>", lambda e: self._on_mouse_wheel_unix(e, 1))  # Linux scroll up
         self.bind("<Button-5>", lambda e: self._on_mouse_wheel_unix(e, -1))  # Linux scroll down
@@ -193,26 +201,107 @@ class PreviewCanvas(tk.Canvas):
             self.delete(line_id)
         self.grid_lines = []
 
-    def _on_pan_start(self, event):
-        """Handle pan start (mouse press)."""
-        self.pan_start_x = event.x
-        self.pan_start_y = event.y
-        self.is_panning = True
-        self.config(cursor="fleur")  # Move cursor
+    def _on_mouse_press(self, event):
+        """
+        Handle mouse press - either pan or tool application.
 
-    def _on_pan_move(self, event):
-        """Handle pan move (mouse drag)."""
+        Priority:
+        1. Ctrl+drag → Always pan (override tool)
+        2. Tool selected → Apply tool
+        3. No tool ('none') → Pan normally
+
+        Two-point tool behavior:
+        - First click stores start point
+        - Drag shows preview line
+        - Release executes command with both points
+
+        Why this design:
+        - Simple priority-based logic
+        - Tool callback returns False if tool is 'none'
+        - Two-point tools get special handling
+        - Enables panning automatically when no tool active
+        """
+        # Ctrl key always forces pan mode
+        if event.state & 0x4:  # 0x4 = Ctrl key
+            self.pan_start_x = event.x
+            self.pan_start_y = event.y
+            self.is_panning = True
+            self.config(cursor="fleur")
+            return
+
+        # Try to apply tool if callback exists
+        tool_was_applied = False
+        if self.tool_callback is not None:
+            hm_x, hm_y = self.get_clicked_position(event)
+            # Callback returns True if tool was applied, False if tool is 'none'
+            # For two-point tools, callback sets is_two_point_tool flag
+            tool_was_applied = self.tool_callback(hm_x, hm_y, is_drag_start=True)
+
+            # If this is a two-point tool, store first point and canvas coordinates
+            if self.is_two_point_tool:
+                self.first_point = (hm_x, hm_y)
+                self.first_canvas_point = (event.x, event.y)
+
+        # If no tool was applied (or no callback), enable pan mode
+        if not tool_was_applied:
+            self.pan_start_x = event.x
+            self.pan_start_y = event.y
+            self.is_panning = True
+            self.config(cursor="fleur")
+
+    def _on_mouse_drag(self, event):
+        """
+        Handle mouse drag - either pan, two-point preview, or continuous tool application.
+
+        For two-point tools (ridge/valley):
+        - Draw preview line from first point to current cursor position
+        - Update line as mouse moves
+        """
         if self.is_panning and self.image_id is not None:
+            # Pan mode
             dx = event.x - self.pan_start_x
             dy = event.y - self.pan_start_y
             self.move(self.image_id, dx, dy)
             self.pan_start_x = event.x
             self.pan_start_y = event.y
+        elif self.is_two_point_tool and self.first_point is not None:
+            # Two-point tool mode - show preview line
+            self._update_preview_line(event.x, event.y)
+        elif self.tool_callback is not None:
+            # Regular tool drag mode (brush tools)
+            hm_x, hm_y = self.get_clicked_position(event)
+            self.tool_callback(hm_x, hm_y, is_drag=True)
 
-    def _on_pan_end(self, event):
-        """Handle pan end (mouse release)."""
-        self.is_panning = False
-        self.config(cursor="")
+    def _on_mouse_release(self, event):
+        """
+        Handle mouse release.
+
+        For two-point tools:
+        - Execute command with both points
+        - Clear preview line
+        - Reset state
+        """
+        if self.is_panning:
+            self.is_panning = False
+            self.config(cursor="")
+        elif self.is_two_point_tool and self.first_point is not None:
+            # Two-point tool - execute with both points
+            hm_x, hm_y = self.get_clicked_position(event)
+
+            # Clear preview line
+            self._clear_preview_line()
+
+            # Execute command with both points
+            if self.tool_callback is not None:
+                self.tool_callback(hm_x, hm_y, is_drag_end=True, first_point=self.first_point)
+
+            # Reset two-point state
+            self.first_point = None
+            self.is_two_point_tool = False
+        elif self.tool_callback is not None:
+            # Regular tool release
+            hm_x, hm_y = self.get_clicked_position(event)
+            self.tool_callback(hm_x, hm_y, is_drag_end=True)
 
     def _on_mouse_wheel(self, event):
         """Handle mouse wheel zoom (Windows/macOS)."""
@@ -227,6 +316,15 @@ class PreviewCanvas(tk.Canvas):
             self.zoom_in()
         else:
             self.zoom_out()
+
+    def set_heightmap_resolution(self, resolution: int):
+        """
+        Set the heightmap resolution for coordinate conversion.
+
+        Args:
+            resolution: Heightmap size (for square heightmaps)
+        """
+        self.heightmap_resolution = resolution
 
     def get_clicked_position(self, event) -> tuple[int, int]:
         """
@@ -267,11 +365,51 @@ class PreviewCanvas(tk.Canvas):
         rel_x = max(0.0, min(1.0, rel_x))
         rel_y = max(0.0, min(1.0, rel_y))
 
-        # Scale to heightmap resolution (assuming square heightmap)
-        # Note: Parent GUI should provide actual resolution
-        resolution = 1024  # Default, should be passed from parent
+        # Scale to heightmap resolution (use stored resolution)
+        resolution = getattr(self, 'heightmap_resolution', 4096)
 
         hm_x = int(rel_x * resolution)
         hm_y = int(rel_y * resolution)
 
         return (hm_x, hm_y)
+
+    def _update_preview_line(self, x2: int, y2: int):
+        """
+        Update or create preview line for two-point tools.
+
+        Args:
+            x2, y2: Current mouse position (canvas coordinates)
+
+        Why this method:
+        - Visual feedback shows user where ridge/valley will be placed
+        - Line updates in real-time as mouse moves
+        - Uses bright color (yellow) for visibility
+        """
+        if not hasattr(self, 'first_canvas_point') or self.first_canvas_point is None:
+            return
+
+        x1, y1 = self.first_canvas_point
+
+        # Delete old preview line if exists
+        if self.preview_line_id is not None:
+            self.delete(self.preview_line_id)
+
+        # Draw new preview line
+        self.preview_line_id = self.create_line(
+            x1, y1, x2, y2,
+            fill='yellow',
+            width=2,
+            dash=(4, 4)  # Dashed line for preview effect
+        )
+
+    def _clear_preview_line(self):
+        """
+        Clear the preview line after two-point tool is executed.
+
+        Why this method:
+        - Clean up visual feedback after command execution
+        - Prevents line from persisting on canvas
+        """
+        if self.preview_line_id is not None:
+            self.delete(self.preview_line_id)
+            self.preview_line_id = None

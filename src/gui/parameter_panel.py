@@ -79,35 +79,140 @@ class ParameterPanel(ttk.Frame):
         self._create_widgets()
 
     def _create_widgets(self):
-        """Create all parameter control widgets."""
+        """Create all parameter control widgets using tabs for compact layout."""
         # Title
-        title = ttk.Label(self, text="Terrain Parameters", font=('Arial', 12, 'bold'))
+        title = ttk.Label(self, text="Terrain Generator", font=('Arial', 12, 'bold'))
         title.pack(pady=(10, 5))
 
-        ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+        # Create tabbed interface (saves ~200px vertical space!)
+        self.notebook = ttk.Notebook(self)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # Preset selector
-        self._create_preset_selector()
+        # Tab 1: Basic terrain parameters
+        self._create_basic_tab()
 
-        ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        # Tab 2: Water features
+        self._create_water_tab()
 
-        # Resolution display (FIXED at 4096x4096 per CS2 requirements)
-        self._create_resolution_display()
+        # Tab 3: Advanced options (hidden by default, can be expanded later)
+        # self._create_advanced_tab()  # Future: technical parameters
 
-        ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
-
-        # Parameter sliders
-        self._create_parameter_sliders()
-
-        ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
-
-        # Generate button
+        # Generate button (always visible at bottom)
         generate_btn = ttk.Button(
             self,
-            text="Generate Terrain",
-            command=self._on_generate
+            text="Generate Playable Terrain",
+            command=self._on_generate,
+            style='Accent.TButton'  # Make it prominent
         )
         generate_btn.pack(pady=10, padx=10, fill=tk.X)
+
+    def _create_basic_tab(self):
+        """Create basic terrain parameters tab."""
+        tab = ttk.Frame(self.notebook, padding=10)
+        self.notebook.add(tab, text="Basic")
+
+        # Preset selector (dropdown instead of radio buttons - saves space!)
+        preset_frame = ttk.LabelFrame(tab, text="Terrain Preset", padding=10)
+        preset_frame.pack(fill=tk.X, pady=(0, 10))
+
+        presets = [
+            ('Mountains', 'mountains'),
+            ('Hills', 'hills'),
+            ('Flat', 'flat'),
+            ('Islands', 'islands'),
+            ('Canyons', 'canyons'),
+            ('Highlands', 'highlands'),
+            ('Mesas', 'mesas')
+        ]
+
+        # Dropdown instead of 7 radio buttons (saves ~140px!)
+        # Map display names to internal values
+        self.preset_map = {label: value for label, value in presets}
+        self.preset_reverse_map = {value: label for label, value in presets}
+
+        preset_combo = ttk.Combobox(
+            preset_frame,
+            values=[label for label, _ in presets],
+            state='readonly',
+            width=20
+        )
+        # Set initial value
+        preset_combo.set(self.preset_reverse_map.get(self.params['preset'].get(), 'Mountains'))
+        preset_combo.pack(fill=tk.X)
+        preset_combo.bind('<<ComboboxSelected>>', lambda e: self._on_preset_combo_change(preset_combo))
+
+        # Resolution info (compact)
+        res_frame = ttk.LabelFrame(tab, text="Resolution", padding=10)
+        res_frame.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(
+            res_frame,
+            text="4096×4096 (CS2 Required)",
+            font=('Arial', 9, 'bold')
+        ).pack()
+
+        # Parameter sliders (compact layout)
+        self._create_parameter_sliders_compact(tab)
+
+    def _create_parameter_sliders_compact(self, parent):
+        """Create compact parameter sliders."""
+        frame = ttk.LabelFrame(parent, text="Terrain Characteristics", padding=10)
+        frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Create sliders in compact format
+        self._create_slider(frame, "Roughness:", self.params['roughness'], 0.0, 100.0, 1.0, "smooth ↔ jagged")
+        self._create_slider(frame, "Feature Size:", self.params['feature_size'], 0.0, 100.0, 1.0, "small ↔ large")
+        self._create_slider(frame, "Detail Level:", self.params['detail_level'], 0.0, 100.0, 1.0, "simple ↔ intricate")
+        self._create_slider(frame, "Height Variation:", self.params['height_variation'], 0.0, 100.0, 1.0, "flat ↔ extreme")
+
+    def _create_water_tab(self):
+        """Create water features tab."""
+        tab = ttk.Frame(self.notebook, padding=10)
+        self.notebook.add(tab, text="Water")
+
+        # Info label
+        info = ttk.Label(
+            tab,
+            text="Add water features to terrain\n(Generate terrain first)",
+            font=('Arial', 9),
+            justify=tk.CENTER,
+            foreground='gray30'
+        )
+        info.pack(pady=(0, 15))
+
+        # Rivers button
+        rivers_btn = ttk.Button(
+            tab,
+            text="Add Rivers",
+            command=self.gui.add_rivers
+        )
+        rivers_btn.pack(fill=tk.X, pady=5)
+
+        # Lakes button
+        lakes_btn = ttk.Button(
+            tab,
+            text="Add Lakes",
+            command=self.gui.add_lakes
+        )
+        lakes_btn.pack(fill=tk.X, pady=5)
+
+        # Coastal features button
+        coastal_btn = ttk.Button(
+            tab,
+            text="Add Coastal Features",
+            command=self.gui.add_coastal
+        )
+        coastal_btn.pack(fill=tk.X, pady=5)
+
+        # Separator
+        ttk.Separator(tab, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=15)
+
+        # 3D Preview button
+        preview_btn = ttk.Button(
+            tab,
+            text="3D Preview",
+            command=self.gui.show_3d_preview
+        )
+        preview_btn.pack(fill=tk.X, pady=5)
 
     def _create_preset_selector(self):
         """Create preset selection radio buttons."""
@@ -278,6 +383,14 @@ class ParameterPanel(ttk.Frame):
             )
             desc_label.pack()
 
+    def _on_preset_combo_change(self, combo):
+        """Handle preset combobox selection change."""
+        selected_label = combo.get()
+        preset_value = self.preset_map.get(selected_label)
+        if preset_value:
+            self.params['preset'].set(preset_value)
+            self._on_preset_change()
+
     def _on_preset_change(self):
         """Handle preset selection change - updates intuitive parameters."""
         preset = self.params['preset'].get()
@@ -292,8 +405,9 @@ class ParameterPanel(ttk.Frame):
             self.params['detail_level'].set(params['detail_level'])
             self.params['height_variation'].set(params['height_variation'])
 
-            # Trigger regeneration
-            self.gui.schedule_update()
+            # Don't auto-generate - let user click Generate button
+            # This gives user control over when generation happens
+            self.gui.set_status(f"Preset '{preset}' loaded - Click 'Generate Playable' to apply")
 
         except KeyError:
             # Unknown preset, ignore
@@ -302,9 +416,14 @@ class ParameterPanel(ttk.Frame):
     # Resolution change handler removed - resolution is now fixed at 4096x4096
 
     def _on_parameter_change(self):
-        """Handle parameter slider change."""
-        # Schedule debounced update
-        self.gui.schedule_update()
+        """
+        Handle parameter slider change.
+
+        Don't auto-generate - just update status.
+        User must click 'Generate Playable' to apply changes.
+        """
+        # Show user that parameters changed (no auto-generation)
+        self.gui.set_status("Parameters changed - Click 'Generate Playable' to apply")
 
     def _on_generate(self):
         """Handle Generate button click."""

@@ -1,125 +1,113 @@
 """
 CS2 Heightmap Generator - Progress Dialog
 
-Modal progress dialog for long-running operations.
-
-Features:
-- Indeterminate progress bar (for operations without known duration)
-- Status message display
-- Cancel button (optional)
-- Modal window (blocks parent interaction)
-
-Why This Design:
-- Standard pattern for long operations
-- Keeps user informed
-- Allows cancellation if needed
-- Non-blocking (parent window stays responsive)
+Provides visual feedback during long-running operations.
+Prevents GUI from appearing frozen during terrain generation.
 """
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Optional, Callable
 
 
-class ProgressDialog(tk.Toplevel):
+class ProgressDialog:
     """
-    Modal progress dialog for long-running operations.
+    Non-blocking progress dialog for long-running operations.
+
+    Shows:
+    - Current operation description
+    - Progress bar
+    - Percentage complete
 
     Usage:
-        dialog = ProgressDialog(parent, "Generating terrain...")
-        dialog.show()
-        # ... do work in background thread ...
-        dialog.close()
+        progress = ProgressDialog(parent, "Generating Terrain")
+        progress.update(0, "Generating base noise...")
+        # ... do work ...
+        progress.update(33, "Creating mountain ranges...")
+        # ... do work ...
+        progress.close()
     """
 
-    def __init__(self, parent, title: str = "Processing",
-                 message: str = "Please wait...",
-                 cancelable: bool = False,
-                 on_cancel: Optional[Callable] = None):
+    def __init__(self, parent, title="Processing"):
         """
-        Initialize progress dialog.
+        Create progress dialog.
 
         Args:
-            parent: Parent window
+            parent: Parent tkinter window
             title: Dialog title
-            message: Status message to display
-            cancelable: Whether to show cancel button
-            on_cancel: Callback function when cancel is clicked
         """
-        super().__init__(parent)
-
         self.parent = parent
-        self.cancelled = False
-        self.on_cancel = on_cancel
 
-        # Configure window
-        self.title(title)
-        self.geometry("400x150")
-        self.resizable(False, False)
+        # Create toplevel window
+        self.window = tk.Toplevel(parent)
+        self.window.title(title)
+        self.window.geometry("400x150")
+        self.window.resizable(False, False)
 
         # Center on parent
-        self.transient(parent)
-        self.grab_set()  # Make modal
+        self.window.transient(parent)
+        self.window.grab_set()
 
-        # Create widgets
-        self._create_widgets(message, cancelable)
+        # Main frame
+        frame = ttk.Frame(self.window, padding=20)
+        frame.pack(fill=tk.BOTH, expand=True)
 
-        # Center on screen
-        self.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.winfo_height() // 2)
-        self.geometry(f"+{x}+{y}")
-
-    def _create_widgets(self, message: str, cancelable: bool):
-        """Create dialog widgets."""
-        # Message label
-        self.message_label = ttk.Label(
-            self,
-            text=message,
-            font=('Arial', 10),
-            wraplength=350
+        # Status label
+        self.status_label = ttk.Label(
+            frame,
+            text="Starting...",
+            font=('Arial', 10)
         )
-        self.message_label.pack(pady=20, padx=20)
+        self.status_label.pack(pady=(0, 10))
 
-        # Progress bar (indeterminate mode)
-        self.progress = ttk.Progressbar(
-            self,
-            mode='indeterminate',
-            length=350
+        # Progress bar
+        self.progress_bar = ttk.Progressbar(
+            frame,
+            mode='determinate',
+            length=350,
+            maximum=100
         )
-        self.progress.pack(pady=10, padx=20)
-        self.progress.start(10)  # Start animation
+        self.progress_bar.pack(pady=(0, 5))
 
-        # Cancel button (if enabled)
-        if cancelable:
-            self.cancel_btn = ttk.Button(
-                self,
-                text="Cancel",
-                command=self._on_cancel
-            )
-            self.cancel_btn.pack(pady=10)
+        # Percentage label
+        self.percentage_label = ttk.Label(
+            frame,
+            text="0%",
+            font=('Arial', 9)
+        )
+        self.percentage_label.pack(pady=(0, 10))
 
-    def _on_cancel(self):
-        """Handle cancel button click."""
-        self.cancelled = True
-        if self.on_cancel:
-            self.on_cancel()
-        self.close()
+        # Prevent closing with X button
+        self.window.protocol("WM_DELETE_WINDOW", lambda: None)
 
-    def update_message(self, message: str):
-        """Update the status message."""
-        self.message_label.config(text=message)
-        self.update_idletasks()
+        # Force window to appear
+        self.window.update()
+
+    def update(self, percentage, status_text=None):
+        """
+        Update progress.
+
+        Args:
+            percentage: Progress percentage (0-100)
+            status_text: Optional status message to display
+        """
+        # Update progress bar
+        self.progress_bar['value'] = percentage
+
+        # Update percentage label
+        self.percentage_label.config(text=f"{int(percentage)}%")
+
+        # Update status text if provided
+        if status_text:
+            self.status_label.config(text=status_text)
+
+        # Force GUI to update (critical for responsiveness!)
+        self.window.update_idletasks()
+        self.window.update()
 
     def close(self):
-        """Close the dialog."""
+        """Close the progress dialog."""
         try:
-            self.progress.stop()
-            self.grab_release()
-            self.destroy()
-        except Exception:
-            pass  # Ignore errors during cleanup
-
-    def show(self):
-        """Show the dialog (non-blocking)."""
-        self.update_idletasks()
+            self.window.grab_release()
+            self.window.destroy()
+        except:
+            pass  # Window may already be destroyed

@@ -60,35 +60,30 @@ class ToolPalette(ttk.Frame):
         self._create_widgets()
 
     def _create_widgets(self):
-        """Create all tool palette widgets."""
+        """Create all tool palette widgets - compact layout."""
         # Title
-        title = ttk.Label(self, text="Tools", font=('Arial', 12, 'bold'))
-        title.pack(pady=(10, 5))
+        title = ttk.Label(self, text="Tools & Actions", font=('Arial', 11, 'bold'))
+        title.pack(pady=(8, 3))
 
-        ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+        # Navigation mode button (deselect all tools)
+        nav_btn = ttk.Button(
+            self,
+            text="Pan/Zoom Mode",
+            command=self._deselect_tools
+        )
+        nav_btn.pack(fill=tk.X, padx=10, pady=(5, 10))
 
         # Brush tools section
         self._create_brush_tools()
 
-        ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
-
         # Feature tools section
         self._create_feature_tools()
 
-        ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
-
-        # Water features section
-        self._create_water_tools()
-
-        ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
-
-        # History list
-        self._create_history_list()
-
-        ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
-
-        # Quick actions
+        # Quick actions (compact)
         self._create_quick_actions()
+
+        # History list (compact)
+        self._create_history_list()
 
     def _create_brush_tools(self):
         """Create brush tool section."""
@@ -133,7 +128,8 @@ class ToolPalette(ttk.Frame):
         )
         strength_slider.pack(fill=tk.X)
 
-        strength_label = ttk.Label(frame, text="0.0")
+        # Label showing current strength value
+        strength_label = ttk.Label(frame, text=f"{self.brush_strength.get():.2f}")
         strength_label.pack(anchor=tk.E)
 
         # Update label when slider changes
@@ -162,38 +158,22 @@ class ToolPalette(ttk.Frame):
             )
             btn.pack(fill=tk.X, pady=2)
 
-    def _create_water_tools(self):
-        """Create water feature tool section."""
-        frame = ttk.LabelFrame(self, text="Water Features", padding=10)
-        frame.pack(fill=tk.X, padx=10, pady=5)
-
-        tools = [
-            ('Generate Rivers', 'rivers', 'Add river network'),
-            ('Generate Lakes', 'lakes', 'Add natural lakes'),
-            ('Add Coastal Features', 'coastal', 'Add beaches and cliffs')
-        ]
-
-        for label, value, tooltip in tools:
-            btn = ttk.Button(
-                frame,
-                text=label,
-                command=lambda v=value: self._apply_water_feature(v)
-            )
-            btn.pack(fill=tk.X, pady=2)
+    # Water tools removed - now in Parameter Panel > Water tab
 
     def _create_history_list(self):
-        """Create history list display."""
-        frame = ttk.LabelFrame(self, text="History", padding=10)
+        """Create compact history list display."""
+        frame = ttk.LabelFrame(self, text="History", padding=8)
         frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        # Scrollable listbox
+        # Scrollable listbox (compact)
         scrollbar = ttk.Scrollbar(frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.history_listbox = tk.Listbox(
             frame,
             yscrollcommand=scrollbar.set,
-            height=8
+            height=5,  # Reduced from 8 to save space
+            font=('Arial', 8)  # Smaller font
         )
         self.history_listbox.pack(fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.history_listbox.yview)
@@ -201,23 +181,33 @@ class ToolPalette(ttk.Frame):
         # Bind double-click to jump to history state
         self.history_listbox.bind('<Double-Button-1>', self._on_history_click)
 
-        # Update button
-        ttk.Button(frame, text="Refresh History", command=self._update_history).pack(fill=tk.X, pady=(5, 0))
-
     def _create_quick_actions(self):
-        """Create quick action buttons."""
-        frame = ttk.LabelFrame(self, text="Quick Actions", padding=10)
+        """Create compact quick action buttons."""
+        frame = ttk.LabelFrame(self, text="Actions", padding=8)
         frame.pack(fill=tk.X, padx=10, pady=5)
 
+        # Removed 3D Preview (now in Water tab)
+        # Keep only non-redundant actions
         actions = [
             ('Analyze Terrain', self.gui.show_analysis),
-            ('Save Preview', self._save_preview),
             ('Export to CS2', self.gui.export_to_cs2)
         ]
 
         for label, command in actions:
             btn = ttk.Button(frame, text=label, command=command)
             btn.pack(fill=tk.X, pady=2)
+
+    def _deselect_tools(self):
+        """
+        Deselect all tools and return to pan/zoom mode.
+
+        Sets current_tool to 'none' which enables:
+        - Click and drag to pan
+        - Mouse wheel to zoom
+        - No tool application on click
+        """
+        self.current_tool.set('none')
+        self.gui.set_status("Pan/Zoom mode - Click and drag to move, scroll to zoom")
 
     def _select_tool(self, tool: str):
         """
@@ -232,7 +222,7 @@ class ToolPalette(ttk.Frame):
         - Can setup tool-specific cursor
         """
         self.current_tool.set(tool)
-        self.gui.set_status(f"Tool selected: {tool}")
+        self.gui.set_status(f"Tool selected: {tool} - Click 'Pan/Zoom' to return to navigation")
 
         # Note: In full implementation, would:
         # 1. Change cursor on canvas

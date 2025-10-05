@@ -45,18 +45,50 @@ class RiverGenerator:
         (-1, 1),  # Northeast
     ]
 
-    def __init__(self, heightmap: np.ndarray):
+    def __init__(self, heightmap: np.ndarray, downsample: bool = True, target_size: int = 1024):
         """
         Initialize river generator with a heightmap.
 
         Args:
             heightmap: 2D numpy array of elevation values (0.0-1.0)
+            downsample: Enable downsampling for performance (default True)
+            target_size: Target resolution for downsampling (default 1024)
 
         Note: Heightmap is NOT modified by this class.
         All operations return new arrays or Command objects.
+
+        Performance:
+        - With downsampling (4096→1024): ~30s instead of 30min
+        - Without downsampling: Original speed (slow on large maps)
         """
-        self.heightmap = heightmap.copy()
-        self.height, self.width = heightmap.shape
+        # Store original heightmap info
+        self.original_heightmap = heightmap
+        self.original_size = heightmap.shape[0]
+
+        # DEBUG: Show initialization parameters
+        print(f"[RIVER DEBUG] RiverGenerator.__init__() called")
+        print(f"[RIVER DEBUG]   - Input heightmap shape: {heightmap.shape}")
+        print(f"[RIVER DEBUG]   - downsample parameter: {downsample}")
+        print(f"[RIVER DEBUG]   - target_size parameter: {target_size}")
+
+        # Downsample if enabled and needed
+        if downsample and heightmap.shape[0] > target_size:
+            from .performance_utils import downsample_heightmap
+            self.heightmap, self.scale_factor = downsample_heightmap(heightmap, target_size)
+            self.downsampled = True
+            print(f"[RIVER DEBUG] [OK] DOWNSAMPLING ACTIVE: {self.original_size}x{self.original_size} -> {self.heightmap.shape[0]}x{self.heightmap.shape[0]}")
+            print(f"[RIVER DEBUG] [OK] Expected speedup: {self.scale_factor:.1f}x")
+        else:
+            self.heightmap = heightmap.copy()
+            self.scale_factor = 1.0
+            self.downsampled = False
+            print(f"[RIVER DEBUG] [NO] NO DOWNSAMPLING: Processing at full resolution {heightmap.shape[0]}x{heightmap.shape[0]}")
+            if not downsample:
+                print(f"[RIVER DEBUG]   Reason: downsample=False")
+            elif heightmap.shape[0] <= target_size:
+                print(f"[RIVER DEBUG]   Reason: heightmap size ({heightmap.shape[0]}) <= target_size ({target_size})")
+
+        self.height, self.width = self.heightmap.shape
 
     def calculate_flow_direction(self) -> np.ndarray:
         """
@@ -73,35 +105,38 @@ class RiverGenerator:
         4. If no downhill neighbor, mark as sink (-1)
 
         Time complexity: O(n) where n = total cells
+
+        Vectorized implementation for performance.
         """
+        import time
+        start = time.time()
+        print(f"[RIVER DEBUG] calculate_flow_direction() starting for {self.height}x{self.width} = {self.height*self.width:,} cells")
+
+        # Initialize flow direction array
         flow_dir = np.full((self.height, self.width), -1, dtype=np.int8)
 
-        for y in range(self.height):
-            for x in range(self.width):
-                current_height = self.heightmap[y, x]
-                steepest_slope = 0.0
-                steepest_dir = -1
+        # Pad heightmap to handle borders
+        padded = np.pad(self.heightmap, 1, mode='edge')
 
-                # Check all 8 neighbors
-                for dir_idx, (dy, dx) in enumerate(self.DIRECTIONS):
-                    ny, nx = y + dy, x + dx
+        # For each direction, compute slopes in a vectorized manner
+        max_slopes = np.full((self.height, self.width), 0.0, dtype=np.float32)
 
-                    # Check bounds
-                    if 0 <= ny < self.height and 0 <= nx < self.width:
-                        neighbor_height = self.heightmap[ny, nx]
+        for dir_idx, (dy, dx) in enumerate(self.DIRECTIONS):
+            # Extract neighbor heights using slicing
+            # Account for padding offset
+            neighbor_heights = padded[1+dy:1+dy+self.height, 1+dx:1+dx+self.width]
 
-                        # Calculate slope (positive = downhill)
-                        # Diagonal neighbors have distance sqrt(2), adjust slope
-                        distance = 1.414 if (dy != 0 and dx != 0) else 1.0
-                        slope = (current_height - neighbor_height) / distance
+            # Calculate slopes
+            distance = 1.414 if (dy != 0 and dx != 0) else 1.0
+            slopes = (self.heightmap - neighbor_heights) / distance
 
-                        # Track steepest downhill slope
-                        if slope > steepest_slope:
-                            steepest_slope = slope
-                            steepest_dir = dir_idx
+            # Update flow direction where this slope is steeper
+            mask = slopes > max_slopes
+            flow_dir[mask] = dir_idx
+            max_slopes[mask] = slopes[mask]
 
-                flow_dir[y, x] = steepest_dir
-
+        elapsed = time.time() - start
+        print(f"[RIVER DEBUG] calculate_flow_direction() VECTORIZED completed in {elapsed:.2f}s")
         return flow_dir
 
     def calculate_flow_accumulation(self,
@@ -341,6 +376,16 @@ class RiverGenerator:
             for acc, y, x in sources_to_carve:
                 result = self.carve_river_path(result, flow_dir, y, x)
                 progress.update(1)
+
+        # If we downsampled, upsample result back to original resolution
+        if self.downsampled:
+            print(f"[RIVER] Upsampling result to original resolution ({self.original_size}×{self.original_size})")
+            from scipy import ndimage
+            scale_factor = self.original_size / result.shape[0]
+            result = ndimage.zoom(result, scale_factor, order=1)  # Bilinear interpolation
+            # Ensure exact size
+            if result.shape[0] != self.original_size:
+                result = result[:self.original_size, :self.original_size]
 
         return result
 

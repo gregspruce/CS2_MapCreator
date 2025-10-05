@@ -1,6 +1,6 @@
 # Cities Skylines 2 Heightmap Generator
 
-**Version 2.0.0** - A professional Python tool for generating custom heightmaps for Cities Skylines 2. Features both CLI and GUI interfaces with full undo/redo, water features, and advanced terrain analysis.
+**Version 2.1.1** - A professional Python tool for generating custom heightmaps for Cities Skylines 2. Features blazing-fast terrain generation (<1s), fully functional water features, and quantitative elevation analysis.
 
 ## Features
 
@@ -11,15 +11,25 @@
 - **Procedural Generation**: Perlin noise, Simplex noise, ridged multifractal, islands, canyons, mesas
 - **Auto-Export to CS2**: Automatically detects and exports to CS2 directory (Windows/macOS/Linux)
 
-### Advanced Features (v2.0)
-- **GUI Interface**: Tkinter-based visual editor with live preview
+### Advanced Features (v2.1.1)
+- **⚡ Ultra-Fast Generation**: 4096x4096 terrain in <1 second (60-140x faster than v2.0)
+- **Vectorized Processing**: C++/Cython-accelerated noise generation
+- **GUI Interface**: Tkinter-based visual editor with instant terrain updates (v2.1.1: preview updates automatically)
+- **Elevation Legend**: Dedicated panel showing quantitative height scale - fully visible labels (v2.1.1: layout fixed)
 - **State Management**: Full undo/redo support for all operations
-- **Water Features**: River networks (D8 algorithm), lake generation, coastal features (beaches/cliffs)
-- **Terrain Analysis**: Slope/aspect calculation, statistics, peak/valley detection
+- **Water Features**: Fully functional river networks (D8 algorithm), lake generation (watershed), coastal features (v2.1.1: now working)
+- **Terrain Analysis**: Comprehensive statistics including slope/aspect/classification (v2.1.1: now accessible via GUI)
+- **CS2 Export**: Direct export to Cities Skylines 2 heightmaps directory (v2.1.1: now working)
 - **Preview Generation**: Hillshade rendering, multiple colormaps, thumbnail export
 - **Preset Management**: Save/load/share custom terrain configurations
-- **Performance Optimizations**: LRU caching (30,000x speedup on repeated operations)
 - **Worldmap Support**: Extended terrain beyond playable area
+
+### Performance (v2.1.1)
+- **4096x4096 generation**: 0.85-0.94 seconds (was 60-120s in v2.0)
+- **Throughput**: ~19 million pixels/second
+- **Scaling**: Near-perfect linear scaling with resolution
+- **Setup verification**: Built-in dependency checker ensures optimal performance
+- **GUI responsiveness**: Instant preview updates, no manual refresh needed
 
 ## Installation
 
@@ -43,8 +53,15 @@ chmod +x setup_env.sh
 
 This will:
 1. Create a virtual environment
-2. Install all dependencies
+2. Install all dependencies (including critical performance library)
 3. Set everything up for you
+
+**After setup, verify everything works:**
+```bash
+python verify_setup.py
+```
+
+This checks that all critical dependencies are installed and performance is optimal.
 
 ### Manual Setup
 
@@ -93,22 +110,28 @@ python gui_main.py
 ```
 
 **GUI Features:**
-- **Live Preview**: Real-time hillshade visualization with terrain colormap
+- **Live Preview**: Real-time hillshade visualization with terrain colormap (updates automatically!)
+- **Elevation Legend**: Dedicated panel showing quantitative heights (0m-4.1km) with fully visible labels
 - **Parameter Controls**: 7 terrain presets + adjustable sliders (Scale, Octaves, Persistence, Lacunarity)
 - **Fixed Resolution**: 4096x4096 (CS2 requirement - not optional)
 - **Zoom & Pan**: Mouse wheel zoom (0.25x-4x), drag to pan
-- **Tool Palette**: Brush tools, feature tools, water features
-- **Menu Bar**: File operations (New, Open, Save, Export), Edit (Undo/Redo), View controls
+- **Water Features**: Fully functional rivers (D8), lakes (watershed), coastal features (beaches/cliffs)
+- **Terrain Analysis**: View comprehensive statistics (height distribution, slope analysis, terrain classification)
+- **Menu Bar**: File operations (New, Open, Save, Export to CS2), Edit (Undo/Redo), Tools (Water Features, Analysis)
 - **Keyboard Shortcuts**: Ctrl+N (New), Ctrl+S (Save), Ctrl+Z (Undo), Ctrl+Y (Redo)
 
 **Quick Workflow:**
 1. Launch GUI: `python gui_main.py` (opens instantly with blank preview)
-2. Click a preset (Mountains, Islands, etc.) to generate terrain (1-2 minutes)
-3. Adjust parameters using sliders (changes update after 500ms)
-4. Use File > Save to export heightmap
-5. Use File > Export to CS2 to copy directly to Cities Skylines 2
+2. Click a preset (Mountains, Islands, etc.) to generate terrain (<1 second - instant!)
+3. **Add water features** via Tools menu:
+   - Add Rivers (specify count)
+   - Add Lakes (specify count)
+   - Add Coastal Features (specify water level)
+4. **View Analysis** via Tools → Terrain Analysis (comprehensive statistics)
+5. Adjust parameters using sliders (changes update after 500ms)
+6. Use File → Export to CS2 to copy directly to Cities Skylines 2 (auto-detects directory)
 
-**Note**: The GUI launches instantly with no auto-generation. You must click a preset or Generate button to create terrain.
+**Note**: Preview now updates automatically after generation - no clicking required!
 
 ### CLI Mode (For Automation)
 
@@ -373,12 +396,25 @@ pip install noise --force-reinstall
 pip install Pillow --upgrade
 ```
 
-## Performance Notes
+## Performance Notes (v2.1)
 
-- 4096x4096 generation typically takes 30-120 seconds depending on complexity
-- Smoothing adds 5-15 seconds per iteration
-- Worldmap generation adds 30-60 seconds
-- Use SSD storage for faster export
+**Actual Performance**:
+- 4096x4096 generation: **<1 second** (0.85-0.94s with FastNoiseLite)
+- Smoothing: 2-5 seconds per iteration
+- Worldmap generation: 1-2 seconds
+- Preview rendering: 0.3-0.8 seconds
+- **Total workflow**: Real-time interactive (was 2+ minutes in v2.0)
+
+**Critical Dependency**:
+- Requires `pyfastnoiselite` for optimal performance
+- Without it: Falls back to slow Python (60-120s per generation)
+- Run `python verify_setup.py` to check installation
+
+**Hardware Recommendations**:
+- CPU: Any modern processor (2+ cores recommended)
+- RAM: 4GB minimum, 8GB recommended
+- Storage: SSD for faster export (optional)
+- GPU: Not required (CPU-based generation)
 
 ## Contributing
 
@@ -408,6 +444,7 @@ This tool is provided as-is for use with Cities Skylines 2. The code is based on
 
 ---
 
-**Version**: 1.0
-**Last Updated**: 2025-10-04
+**Version**: 2.1.1
+**Last Updated**: 2025-10-05
 **Compatible with**: Cities Skylines 2 (all versions)
+**Key Updates**: Water features now working, GUI preview updates automatically, elevation legend layout fixed

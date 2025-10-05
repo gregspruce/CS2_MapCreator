@@ -23,8 +23,11 @@ from .progress_tracker import ProgressTracker
 try:
     from pyfastnoiselite.pyfastnoiselite import FastNoiseLite, NoiseType, FractalType
     FASTNOISE_AVAILABLE = True
-except ImportError:
+    print("[NOISE_GEN] FastNoiseLite imported successfully - FAST path available")
+except ImportError as e:
     FASTNOISE_AVAILABLE = False
+    print(f"[NOISE_GEN] FastNoiseLite import FAILED: {e}")
+    print("[NOISE_GEN] WARNING: Will use SLOW pure Python fallback (60-120s per generation)")
 
 
 class NoiseGenerator:
@@ -86,10 +89,13 @@ class NoiseGenerator:
         """
         # Try fast path first
         if FASTNOISE_AVAILABLE:
+            print(f"[DEBUG] Using FAST vectorized path (FASTNOISE_AVAILABLE=True)")
             return self._generate_perlin_fast(resolution, scale, octaves,
                                              persistence, lacunarity, show_progress)
 
         # Fallback to pure Python
+        print(f"[DEBUG] Using SLOW fallback path (FASTNOISE_AVAILABLE=False)")
+        print(f"[DEBUG] This will take 60-120 seconds for 4096x4096!")
         heightmap = np.zeros((resolution, resolution), dtype=np.float64)
 
         # Generate multiple octaves and combine
@@ -128,7 +134,7 @@ class NoiseGenerator:
                              lacunarity: float = 2.0,
                              show_progress: bool = True) -> np.ndarray:
         """
-        Generate terrain using FastNoiseLite (C++/Cython implementation).
+        Generate terrain using FastNoiseLite (C++/Cython implementation) - VECTORIZED.
 
         This is 10-100x faster than the pure Python implementation.
 
@@ -141,8 +147,13 @@ class NoiseGenerator:
         Implementation notes:
         - Uses FastNoiseLite with built-in FBM (Fractal Brownian Motion)
         - Automatically handles octaves, persistence, lacunarity
-        - Direct array generation (much faster than per-pixel loops)
+        - VECTORIZED: Single call generates entire array (no Python loops!)
         - Uses Perlin noise type for consistency with fallback
+
+        Performance improvement:
+        - Old: 16.7M function calls via nested loops (60-120s for 4096x4096)
+        - New: Single vectorized call (1-10s for 4096x4096)
+        - Speedup: 10-100x depending on system
         """
         # Initialize FastNoiseLite
         noise = FastNoiseLite(seed=self.seed)
@@ -151,24 +162,38 @@ class NoiseGenerator:
         noise.noise_type = NoiseType.NoiseType_Perlin
 
         # Configure fractal (FBM = Fractal Brownian Motion)
-        noise.fractal_type = FractalType.FractalType_FBM
+        noise.fractal_type = FractalType.FractalType_FBm
         noise.fractal_octaves = octaves
         noise.fractal_gain = persistence  # Amplitude multiplier per octave
         noise.fractal_lacunarity = lacunarity
         noise.frequency = 1.0 / scale  # FastNoiseLite uses frequency instead of scale
 
-        # Generate heightmap array (vectorized operation)
-        heightmap = np.zeros((resolution, resolution), dtype=np.float32)
+        if show_progress:
+            print("Generating terrain (FastNoise - vectorized)...")
 
-        with ProgressTracker("Generating terrain (FastNoise)", total=resolution, disable=not show_progress) as progress:
-            for y in range(resolution):
-                for x in range(resolution):
-                    heightmap[y, x] = noise.get_noise(x, y)
-                if y % 100 == 0:  # Update progress every 100 rows
-                    progress.update(100)
+        # VECTORIZED GENERATION - KEY OPTIMIZATION
+        # Create coordinate grids for entire heightmap
+        # This replaces 16.7M function calls with a single vectorized operation
+        x_coords = np.arange(resolution, dtype=np.float32)
+        y_coords = np.arange(resolution, dtype=np.float32)
+        xx, yy = np.meshgrid(x_coords, y_coords)
+
+        # Stack coordinates in format (2, num_points) as required by gen_from_coords
+        # Ravel() flattens the 2D grids into 1D arrays for batch processing
+        coords = np.stack([xx.ravel(), yy.ravel()], axis=0)
+
+        # Generate all noise values in one vectorized call
+        # This is where the magic happens - C++/Cython handles all 16.7M points at once
+        noise_values = noise.gen_from_coords(coords)
+
+        # Reshape back to 2D heightmap
+        heightmap = noise_values.reshape(resolution, resolution)
 
         # Normalize to 0.0-1.0 (FastNoiseLite returns approximately -1 to 1)
         heightmap = (heightmap - heightmap.min()) / (heightmap.max() - heightmap.min())
+
+        if show_progress:
+            print("Terrain generation complete!")
 
         return heightmap.astype(np.float64)
 
@@ -180,7 +205,7 @@ class NoiseGenerator:
                         lacunarity: float = 2.0,
                         show_progress: bool = True) -> np.ndarray:
         """
-        Generate terrain using OpenSimplex noise (faster than Perlin).
+        Generate terrain using FastNoiseLite OpenSimplex2 - VECTORIZED.
 
         Args:
             resolution: Output size (pixels)
@@ -194,11 +219,21 @@ class NoiseGenerator:
             2D numpy array normalized to 0.0-1.0
 
         Simplex vs Perlin:
-        - Simplex is computationally faster
+        - OpenSimplex2 is computationally faster than Perlin
         - Fewer directional artifacts
         - Better for large-scale generation
         - Slightly different "character" (personal preference)
+
+        Performance:
+        - Uses vectorized FastNoiseLite for 10-100x speedup
+        - Falls back to slow implementation only if FastNoiseLite unavailable
         """
+        # Try fast path first (vectorized FastNoiseLite)
+        if FASTNOISE_AVAILABLE:
+            return self._generate_simplex_fast(resolution, scale, octaves,
+                                              persistence, lacunarity, show_progress)
+
+        # Fallback to pure Python (slow, but guaranteed to work)
         heightmap = np.zeros((resolution, resolution), dtype=np.float64)
 
         with ProgressTracker("Generating Simplex terrain", total=octaves, disable=not show_progress) as progress:
@@ -224,6 +259,59 @@ class NoiseGenerator:
         heightmap = (heightmap - heightmap.min()) / (heightmap.max() - heightmap.min())
 
         return heightmap
+
+    def _generate_simplex_fast(self,
+                              resolution: int = 4096,
+                              scale: float = 100.0,
+                              octaves: int = 6,
+                              persistence: float = 0.5,
+                              lacunarity: float = 2.0,
+                              show_progress: bool = True) -> np.ndarray:
+        """
+        Generate terrain using FastNoiseLite OpenSimplex2 (vectorized).
+
+        This uses the same vectorized approach as _generate_perlin_fast()
+        but with OpenSimplex2 noise type for faster, cleaner terrain.
+
+        Performance improvement: 10-100x faster than pure Python loops.
+        """
+        # Initialize FastNoiseLite
+        noise = FastNoiseLite(seed=self.seed)
+
+        # Configure noise type (OpenSimplex2 is faster and cleaner than Perlin)
+        noise.noise_type = NoiseType.NoiseType_OpenSimplex2
+
+        # Configure fractal (FBM = Fractal Brownian Motion)
+        noise.fractal_type = FractalType.FractalType_FBm
+        noise.fractal_octaves = octaves
+        noise.fractal_gain = persistence
+        noise.fractal_lacunarity = lacunarity
+        noise.frequency = 1.0 / scale
+
+        if show_progress:
+            print("Generating terrain (OpenSimplex2 - vectorized)...")
+
+        # VECTORIZED GENERATION - same optimization as Perlin
+        x_coords = np.arange(resolution, dtype=np.float32)
+        y_coords = np.arange(resolution, dtype=np.float32)
+        xx, yy = np.meshgrid(x_coords, y_coords)
+
+        # Stack coordinates for batch processing
+        coords = np.stack([xx.ravel(), yy.ravel()], axis=0)
+
+        # Generate all noise values in one call
+        noise_values = noise.gen_from_coords(coords)
+
+        # Reshape to 2D heightmap
+        heightmap = noise_values.reshape(resolution, resolution)
+
+        # Normalize to 0.0-1.0
+        heightmap = (heightmap - heightmap.min()) / (heightmap.max() - heightmap.min())
+
+        if show_progress:
+            print("Terrain generation complete!")
+
+        return heightmap.astype(np.float64)
 
     def generate_opensimplex(self,
                             resolution: int = 4096,

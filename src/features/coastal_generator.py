@@ -37,19 +37,51 @@ class CoastalGenerator:
     BEACH_MAX_SLOPE = np.radians(5)   # 0-5 degrees = beach
     CLIFF_MIN_SLOPE = np.radians(45)  # 45+ degrees = cliff
 
-    def __init__(self, heightmap: np.ndarray, water_level: float = 0.0):
+    def __init__(self, heightmap: np.ndarray, water_level: float = 0.0, downsample: bool = True, target_size: int = 1024):
         """
         Initialize coastal generator.
 
         Args:
             heightmap: 2D numpy array of elevation values (0.0-1.0)
             water_level: Elevation of water surface (default: 0.0 = sea level)
+            downsample: Enable downsampling for performance (default True)
+            target_size: Target resolution for downsampling (default 1024)
 
         Note: Heightmap is NOT modified by this class.
+
+        Performance:
+        - With downsampling (4096→1024): ~30s instead of 15min
+        - Without downsampling: Original speed (slow on large maps)
         """
-        self.heightmap = heightmap.copy()
+        # Store original heightmap info
+        self.original_heightmap = heightmap
+        self.original_size = heightmap.shape[0]
         self.water_level = water_level
-        self.height, self.width = heightmap.shape
+
+        # DEBUG: Show initialization parameters
+        print(f"[COASTAL DEBUG] CoastalGenerator.__init__() called")
+        print(f"[COASTAL DEBUG]   - Input heightmap shape: {heightmap.shape}")
+        print(f"[COASTAL DEBUG]   - downsample parameter: {downsample}")
+        print(f"[COASTAL DEBUG]   - target_size parameter: {target_size}")
+
+        # Downsample if enabled and needed
+        if downsample and heightmap.shape[0] > target_size:
+            from .performance_utils import downsample_heightmap
+            self.heightmap, self.scale_factor = downsample_heightmap(heightmap, target_size)
+            self.downsampled = True
+            print(f"[COASTAL DEBUG] [OK] DOWNSAMPLING ACTIVE: {self.original_size}x{self.original_size} -> {self.heightmap.shape[0]}x{self.heightmap.shape[0]}")
+            print(f"[COASTAL DEBUG] [OK] Expected speedup: {self.scale_factor:.1f}x")
+        else:
+            self.heightmap = heightmap.copy()
+            self.scale_factor = 1.0
+            self.downsampled = False
+            print(f"[COASTAL DEBUG] [NO] NO DOWNSAMPLING: Processing at full resolution {heightmap.shape[0]}x{heightmap.shape[0]}")
+            if not downsample:
+                print(f"[COASTAL DEBUG]   Reason: downsample=False")
+            elif heightmap.shape[0] <= target_size:
+                print(f"[COASTAL DEBUG]   Reason: heightmap size ({heightmap.shape[0]}) <= target_size ({target_size})")
+
+        self.height, self.width = self.heightmap.shape
 
     def calculate_slope(self) -> np.ndarray:
         """
@@ -165,12 +197,16 @@ class CoastalGenerator:
                         # Gradual flattening based on distance
                         flatten_factor = intensity * (1.0 - distance_from_coast / width)
 
-                        # Target height slightly above water
-                        target_height = self.water_level + 0.01
-
-                        # Blend toward target
+                        # Target: Reduce slope rather than flatten to water level
+                        # This creates gentle beaches without destroying all terrain
                         current = result[y, x]
-                        result[y, x] = current * (1 - flatten_factor) + target_height * flatten_factor
+
+                        # Only flatten if above water (beaches don't affect underwater terrain)
+                        if current > self.water_level:
+                            # Gentle gradient toward water level (not flat at water level)
+                            beach_slope = (current - self.water_level) * 0.3  # Reduce slope by 70%
+                            target_height = self.water_level + beach_slope
+                            result[y, x] = current * (1 - flatten_factor) + target_height * flatten_factor
 
         return result
 
@@ -324,6 +360,16 @@ class CoastalGenerator:
                 result = self.add_cliffs(result, intensity=cliff_intensity)
                 progress.update(1)
 
+        # If we downsampled, upsample result back to original resolution
+        if self.downsampled:
+            print(f"[COASTAL DEBUG] Upsampling result to original resolution ({self.original_size}x{self.original_size})")
+            from scipy import ndimage
+            scale_factor = self.original_size / result.shape[0]
+            result = ndimage.zoom(result, scale_factor, order=1)  # Bilinear interpolation
+            # Ensure exact size
+            if result.shape[0] != self.original_size:
+                result = result[:self.original_size, :self.original_size]
+
         return result
 
 
@@ -373,8 +419,8 @@ class AddCoastalFeaturesCommand(Command):
         # Store previous state
         self.previous_data = self.generator.heightmap.copy()
 
-        # Generate coastal features
-        coastal_gen = CoastalGenerator(self.generator.heightmap, self.water_level)
+        # Generate coastal features (with downsampling enabled by default)
+        coastal_gen = CoastalGenerator(self.generator.heightmap, self.water_level, downsample=True, target_size=1024)
         self.modified_data = coastal_gen.generate_coastal_features(
             add_beaches=self.add_beaches,
             add_cliffs=self.add_cliffs,

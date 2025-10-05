@@ -6,13 +6,15 @@ Pillow>=10.0.0
 numpy>=1.24.0
 scipy>=1.10.0
 
-# Procedural noise generation
-# Note: Using perlin-noise instead of noise (no C++ compiler needed)
-perlin-noise>=1.12
-opensimplex>=0.4.5
+# 3D visualization (for 3D preview feature)
+matplotlib>=3.5.0
 
-# Performance optimization (optional but recommended)
-# Provides 10-100x speedup via C++/Cython implementation
+# Procedural noise generation
+perlin-noise>=1.12  # Fallback only (slow: 60-120s per generation)
+opensimplex>=0.4.5  # Fallback only (slow: 90-150s per generation)
+
+# CRITICAL: FastNoiseLite provides 60-140x speedup (REQUIRED for good performance)
+# Without this, terrain generation takes 60-120s instead of <1s
 pyfastnoiselite>=0.0.6
 
 # Progress tracking
