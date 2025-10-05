@@ -249,7 +249,12 @@ class WaterBodyGenerator:
         visited = set()
         to_visit = [(center_y, center_x)]
 
-        while to_visit:
+        # CRITICAL FIX: Add safety limit to prevent infinite loops
+        max_iterations = self.height * self.width
+        iteration_count = 0
+
+        while to_visit and iteration_count < max_iterations:
+            iteration_count += 1
             y, x = to_visit.pop()
 
             if (y, x) in visited:
@@ -274,9 +279,16 @@ class WaterBodyGenerator:
                 transition_factor = (current_height - fill_level) / shore_transition
                 result[y, x] = fill_level + (transition_factor * shore_transition * 0.5)
 
-            # Add neighbors
+            # Add neighbors - check bounds before adding to prevent infinite expansion
             for dy, dx in [(-1,0), (1,0), (0,-1), (0,1), (-1,-1), (-1,1), (1,-1), (1,1)]:
-                to_visit.append((y + dy, x + dx))
+                ny, nx = y + dy, x + dx
+                # Only add if in bounds and not visited
+                if 0 <= ny < self.height and 0 <= nx < self.width and (ny, nx) not in visited:
+                    to_visit.append((ny, nx))
+
+        # Warn if we hit the safety limit
+        if iteration_count >= max_iterations:
+            print(f"[LAKE WARNING] Hit safety limit ({max_iterations} iterations) during flood fill - lake may be incomplete")
 
         return result
 
@@ -325,11 +337,24 @@ class WaterBodyGenerator:
         if self.downsampled:
             print(f"[LAKE DEBUG] Upsampling result to original resolution ({self.original_size}x{self.original_size})")
             from scipy import ndimage
+
+            # CRITICAL FIX: Calculate delta (changes made) at downsampled resolution
+            # This preserves original terrain detail while applying lake filling
+            delta = result - self.heightmap
+            print(f"[LAKE DEBUG] Delta range: {delta.min():.6f} to {delta.max():.6f}")
+
+            # Upsample the delta, not the result
             scale_factor = self.original_size / result.shape[0]
-            result = ndimage.zoom(result, scale_factor, order=1)  # Bilinear interpolation
+            delta_upsampled = ndimage.zoom(delta, scale_factor, order=1)  # Bilinear interpolation
+
             # Ensure exact size
-            if result.shape[0] != self.original_size:
-                result = result[:self.original_size, :self.original_size]
+            if delta_upsampled.shape[0] != self.original_size:
+                delta_upsampled = delta_upsampled[:self.original_size, :self.original_size]
+
+            # Apply delta to original heightmap to preserve detail
+            result = self.original_heightmap + delta_upsampled
+            print(f"[LAKE DEBUG] Applied delta to original heightmap")
+            print(f"[LAKE DEBUG] Result range: {result.min():.6f} to {result.max():.6f}")
 
         return result
 

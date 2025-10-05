@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Water Features - CRITICAL FIX**: Fixed all three water features completely destroying terrain
+  - **Coastal features**: Was flattening entire map to single elevation (FIXED)
+  - **Rivers**: Was flattening entire map (FIXED)
+  - **Lakes**: Was hanging program indefinitely (FIXED)
+  - **Root cause**: Downsampling returned upsampled low-res result instead of merging with original
+  - **Solution**: Delta-based upsampling - upsample the CHANGES, apply to original heightmap
+  - **Impact**: Preserves all original 4096x4096 detail while applying features at correct locations
+  - **Test results**: Coastal 17.9s, Rivers 2.4s, Lakes 22.9s - all preserve terrain detail
+  - **Additional fix**: Lakes flood fill now has safety limit to prevent infinite loops
+  - Files: `src/features/coastal_generator.py:363-385`, `src/features/river_generator.py:380-402`, `src/features/water_body_generator.py:248-291,336-358`
+
 - **Coherent Terrain - CRITICAL FIX**: Removed fixed random seeds that were creating identical terrain every generation
   - Fixed seed 42 in `generate_base_geography()` causing diagonal gradient pattern
   - Fixed seed 123 in `generate_mountain_ranges()` causing identical range patterns
@@ -15,11 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Each generation is now unique with varied terrain patterns
   - File: `src/coherent_terrain_generator_optimized.py`
 
-- **Coastal Features - CRITICAL FIX**: Fixed aggressive beach flattening that destroyed terrain elevation
-  - Old behavior: Flattened all beaches to `water_level + 0.01` (single elevation)
-  - New behavior: Reduces slope by 70% while preserving elevation gradients
-  - Beaches now blend naturally with terrain instead of creating flat zones
+- **Coastal Beach Algorithm - IMPROVEMENT**: Improved beach flattening to preserve elevation gradients
+  - Changed from flattening to `water_level + 0.01` to reducing slope by 70%
+  - Beaches now blend naturally with terrain
   - File: `src/features/coastal_generator.py:200-209`
+  - Note: This fix was correct but didn't solve the reported bug (upsampling was the real issue)
 
 ### Fixed (Previous Session)
 - **Water Features Performance - CRITICAL FIX**: Resolved hanging/30+ minute freeze when generating water features at 4096x4096

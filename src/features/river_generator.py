@@ -379,13 +379,26 @@ class RiverGenerator:
 
         # If we downsampled, upsample result back to original resolution
         if self.downsampled:
-            print(f"[RIVER] Upsampling result to original resolution ({self.original_size}×{self.original_size})")
+            print(f"[RIVER DEBUG] Upsampling result to original resolution ({self.original_size}x{self.original_size})")
             from scipy import ndimage
+
+            # CRITICAL FIX: Calculate delta (changes made) at downsampled resolution
+            # This preserves original terrain detail while applying river carving
+            delta = result - self.heightmap
+            print(f"[RIVER DEBUG] Delta range: {delta.min():.6f} to {delta.max():.6f}")
+
+            # Upsample the delta, not the result
             scale_factor = self.original_size / result.shape[0]
-            result = ndimage.zoom(result, scale_factor, order=1)  # Bilinear interpolation
+            delta_upsampled = ndimage.zoom(delta, scale_factor, order=1)  # Bilinear interpolation
+
             # Ensure exact size
-            if result.shape[0] != self.original_size:
-                result = result[:self.original_size, :self.original_size]
+            if delta_upsampled.shape[0] != self.original_size:
+                delta_upsampled = delta_upsampled[:self.original_size, :self.original_size]
+
+            # Apply delta to original heightmap to preserve detail
+            result = self.original_heightmap + delta_upsampled
+            print(f"[RIVER DEBUG] Applied delta to original heightmap")
+            print(f"[RIVER DEBUG] Result range: {result.min():.6f} to {result.max():.6f}")
 
         return result
 
