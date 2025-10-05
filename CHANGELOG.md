@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Terrain Boring Gradients - FIXED**: Multi-scale base geography instead of single massive blur
+  - **Problem**: Single gaussian blur at sigma=40% of resolution created only 1-2 low-freq variations
+  - **Result**: Every terrain was gradient from one corner to opposite (boring, repetitive)
+  - **Solution**: Use 3 scales of gaussian blur (25%, 12%, 6% of resolution) weighted 50/30/20
+  - **Impact**: More varied continent-scale geography with multiple elevation zones
+  - File: `src/coherent_terrain_generator_optimized.py:199-222`
+
 - **Water Features Still Broken - ROOT CAUSE FIXED**: Generator heightmap never updated after terrain generation
   - **THE REAL BUG**: `generate_terrain()` updated `self.heightmap` but NEVER `self.generator.heightmap`
   - When adding water features, they used `self.generator.heightmap` which was still all zeros!

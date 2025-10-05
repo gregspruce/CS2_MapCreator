@@ -196,14 +196,26 @@ class CoherentTerrainGenerator:
         """
         resolution = heightmap.shape[0]
 
-        # Create large-scale base using very low frequency noise
-        # This defines continent shape, major elevation zones
-        base_scale = resolution * 0.4  # Very large features (sigma=1638 at 4096!)
+        # Create large-scale base using multi-scale blending
+        # Instead of single massive blur (creates boring gradients),
+        # use multiple octaves for varied continent-scale geography
 
-        # Use INPUT heightmap for base (preserve user's parameters!)
-        # Apply very large gaussian blur to extract large-scale structure
-        # OPTIMIZATION: Use FFT-based filter for massive sigma
-        base_heights = CoherentTerrainGenerator._smart_gaussian_filter(heightmap, base_scale)
+        # Scale 1: Continental features (largest, ~30% of map)
+        scale_1 = resolution * 0.25
+        base_1 = CoherentTerrainGenerator._smart_gaussian_filter(heightmap, scale_1)
+
+        # Scale 2: Regional features (~15% of map)
+        scale_2 = resolution * 0.12
+        base_2 = CoherentTerrainGenerator._smart_gaussian_filter(heightmap, scale_2)
+
+        # Scale 3: Sub-regional features (~6% of map)
+        scale_3 = resolution * 0.06
+        base_3 = CoherentTerrainGenerator._smart_gaussian_filter(heightmap, scale_3)
+
+        # Combine with weights: emphasize larger scales but keep variation
+        base_heights = (base_1 * 0.5 +   # Continental (50%)
+                       base_2 * 0.3 +    # Regional (30%)
+                       base_3 * 0.2)     # Sub-regional (20%)
 
         # Normalize
         base_min, base_max = base_heights.min(), base_heights.max()
