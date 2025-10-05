@@ -362,12 +362,27 @@ class RiverGenerator:
         # Find river sources
         sources = self.identify_river_sources(flow_acc, threshold)
 
+        # DEBUG: Show river source detection
+        print(f"[RIVER DEBUG] Flow accumulation range: {flow_acc.min():.1f} to {flow_acc.max():.1f}")
+        print(f"[RIVER DEBUG] Threshold for rivers: {threshold}")
+        print(f"[RIVER DEBUG] River sources found: {len(sources)}")
+
         # Sort by accumulation (largest rivers first)
         sources_with_acc = [(flow_acc[y, x], y, x) for y, x in sources]
         sources_with_acc.sort(reverse=True)
 
+        # Show top sources
+        if len(sources_with_acc) > 0:
+            print(f"[RIVER DEBUG] Top 5 river sources by flow:")
+            for i, (acc, y, x) in enumerate(sources_with_acc[:5]):
+                print(f"[RIVER DEBUG]   #{i+1}: accumulation={acc:.1f} at ({y}, {x})")
+        else:
+            print(f"[RIVER DEBUG] [WARNING] No river sources found above threshold!")
+            print(f"[RIVER DEBUG] [WARNING] Try lowering threshold or generating more varied terrain")
+
         # Limit to requested number
         sources_to_carve = sources_with_acc[:num_rivers]
+        print(f"[RIVER DEBUG] Rivers to carve: {len(sources_to_carve)}")
 
         # Carve rivers
         result = self.heightmap.copy()
