@@ -1,8 +1,8 @@
 # Claude Continue - Session Resume Guide
 
-**Last Updated**: 2025-10-04 10:30 PM
-**Project Status**: v2.0.0 - ALL WEEKS COMPLETE! (GUI + Full Feature Set)
-**Current Phase**: RELEASE READY!
+**Last Updated**: 2025-10-05 1:45 PM
+**Project Status**: v2.0.0 - GUI UX FIXES COMPLETE!
+**Current Phase**: RELEASE READY - GUI launches instantly!
 **GitHub**: https://github.com/gregspruce/CS2_MapCreator
 
 ---
@@ -141,7 +141,7 @@ CS2_Map/
 3. **Parameter Control Panel** [DONE]
    - src/gui/parameter_panel.py (320 lines)
    - 7 terrain presets
-   - Resolution selector (512-8192)
+   - Fixed 4096x4096 resolution display (CS2 requirement)
    - 4 parameter sliders with real-time display
    - Preset-based parameter loading
    - Debounced updates
@@ -451,13 +451,47 @@ python generate_map.py --info
 
 ---
 
+## Recent UX Fixes (2025-10-05)
+
+### GUI Instant Launch Fix
+**User Feedback**: GUI was blocking on launch with auto-generation before user selected settings.
+
+**Problem**:
+- `_generate_default_terrain()` called via `after_idle()` in `__init__`
+- 4096x4096 generation takes 1-2 minutes
+- User sees blank window, can't interact, no settings selected yet
+
+**Solution (Commit 9f788f3)**:
+1. Removed auto-generation completely
+2. Replaced with `_initialize_flat_terrain()`
+3. Shows instant gray preview (no blocking)
+4. Terrain only generates when user clicks preset/Generate button
+5. Updated QUICKSTART.md and README.md
+
+**Why This Is Correct**:
+- User hasn't selected any settings yet - shouldn't auto-generate
+- Standard UX: don't perform expensive operations without explicit user input
+- GUI should be responsive immediately
+- Follows principle of least surprise
+
+**Files Changed**:
+- `src/gui/heightmap_gui.py` - Replaced generation method
+- `QUICKSTART.md` - Added instant launch documentation
+- `README.md` - Updated workflow to reflect user-triggered generation
+
+### CS2 Compliance Enforcement (2025-10-04)
+**User Feedback**: Resolution must be exactly 4096x4096 per CS2 wiki (not optional).
+
+**Solution (Commit 6725c50)**:
+1. Hardcoded resolution to 4096x4096 throughout
+2. Removed resolution selector, replaced with fixed display
+3. Added prominent CS2 requirement warnings in all documentation
+
 ## Known Issues / Limitations
 
-1. **No GUI Yet**: CLI only (Week 4 planned)
+1. **Manual Editing Tools**: Brush tools UI present but not functional (post-v2.0)
 2. **No Real-World Data**: Can't import SRTM/ASTER (post-v2.0)
-3. **Limited Erosion**: Only smoothing (Week 2 adds water features)
-4. **No Preview**: Can't visualize before export (Week 3 planned)
-5. **Single-threaded**: Generation takes 30-120 seconds (Week 5 optimization)
+3. **Limited Erosion**: Only smoothing (more algorithms post-v2.0)
 
 ---
 
