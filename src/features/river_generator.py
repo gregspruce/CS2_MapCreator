@@ -68,6 +68,7 @@ class RiverGenerator:
         # DEBUG: Show initialization parameters
         print(f"[RIVER DEBUG] RiverGenerator.__init__() called")
         print(f"[RIVER DEBUG]   - Input heightmap shape: {heightmap.shape}")
+        print(f"[RIVER DEBUG]   - Input heightmap range: {heightmap.min():.6f} to {heightmap.max():.6f}")
         print(f"[RIVER DEBUG]   - downsample parameter: {downsample}")
         print(f"[RIVER DEBUG]   - target_size parameter: {target_size}")
 

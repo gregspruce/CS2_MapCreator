@@ -601,6 +601,8 @@ class HeightmapGUI(tk.Tk):
             # Step 5: Update preview
             progress.update(85, "Generating preview...")
             self.heightmap = heightmap
+            # CRITICAL FIX: Also update generator's heightmap for water features!
+            self.generator.heightmap = heightmap.copy()
             self.update_preview()
 
             # Step 6: Finalize
