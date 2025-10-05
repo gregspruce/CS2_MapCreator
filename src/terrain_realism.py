@@ -300,7 +300,7 @@ class TerrainRealism:
 
         # Terrain-specific strength parameters
         params = {
-            'mountains': {'warp': 0.4, 'ridge': 0.6, 'valley': 0.4, 'plateau': 0.0, 'erosion': 2},
+            'mountains': {'warp': 0.4, 'ridge': 0.8, 'valley': 0.3, 'plateau': 0.0, 'erosion': 1},
             'hills': {'warp': 0.3, 'ridge': 0.2, 'valley': 0.5, 'plateau': 0.0, 'erosion': 1},
             'highlands': {'warp': 0.3, 'ridge': 0.3, 'valley': 0.3, 'plateau': 0.4, 'erosion': 1},
             'flat': {'warp': 0.1, 'ridge': 0.0, 'valley': 0.2, 'plateau': 0.0, 'erosion': 0},

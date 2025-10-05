@@ -353,12 +353,12 @@ class CoherentTerrainGenerator:
         ranges_norm = (ranges - ranges_min) / (ranges_max - ranges_min)
 
         if terrain_type == 'mountains':
-            # Mountains: Base + Ranges + Detail (heavily masked)
-            # CRITICAL: Keep detail weight LOW to create buildable valleys
+            # Mountains: Base + Ranges + Detail (BALANCED for ridges + buildable valleys)
+            # BALANCE: Sharp ridges on peaks (mountain_mask² focuses detail), smooth valleys for building
             composed = (
-                base_norm * 0.5 +                          # Base elevation zones (INCREASED for smoother valleys)
-                ranges_norm * 0.4 * mountain_mask +        # Range structure (masked)
-                detail_norm * 0.2 * (mountain_mask ** 3)   # Detail ONLY on peaks (REDUCED + more aggressive mask)
+                base_norm * 0.3 +                          # Base elevation zones (smooth valleys)
+                ranges_norm * 0.2 * mountain_mask +        # Range structure (masked)
+                detail_norm * 0.6 * (mountain_mask ** 2)   # STRONG detail on peaks for sharp ridges
             )
 
         elif terrain_type == 'hills':

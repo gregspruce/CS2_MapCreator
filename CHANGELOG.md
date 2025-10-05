@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Analyzed
+- **Comprehensive Terrain Quality Evaluation - 2025-10-05**
+  - **Objective**: Generate and evaluate multiple terrains to assess quality for CS2 gameplay
+  - **Methodology**: Generated terrains at 512x512 and 1024x1024, analyzed buildability, visual interest, geological features
+  - **Key Finding**: Terrain is EXCELLENT for gameplay (100% buildable) but lacks visual drama (0% ridges, max slopes only 4.43%)
+  - **Root Cause**: Previous "too noisy" fix over-corrected - reduced detail weight to 0.2 and used mountain_mask³, creating extremely smooth terrain
+  - **Current Status**: Optimized for buildability, sacrificing visual drama
+  - **Trade-off**: Mountains generate gentle rolling hills (perfect for city building) instead of dramatic peaks
+  - **Recommendation**: Implement "Terrain Drama" slider to let users balance buildability vs. visual interest
+  - **Details**: See `TERRAIN_EVALUATION_REPORT.md` for comprehensive analysis
+  - **Test Scripts**: `test_single_terrain.py`, `diagnose_ridges.py`, `evaluate_for_gameplay.py`, `compare_terrain_types.py`
+
 ### Fixed
 - **Terrain Looks Too Random - FIXED**: Enable domain warping and remove fixed seed
   - **Problem**: Terrain looked like "simple pattern instead of useful noise" - too random, not geological
