@@ -94,9 +94,10 @@ class HeightmapGUI(tk.Tk):
         # Bind keyboard shortcuts
         self._bind_shortcuts()
 
-        # Schedule initial terrain generation after window is shown
-        # Why after_idle: Allows window to render first, prevents freeze
-        self.after_idle(self._generate_default_terrain)
+        # Initialize with flat terrain (instant display)
+        # User must explicitly click a preset or Generate button to create terrain
+        # Why: User hasn't selected settings yet, shouldn't auto-generate
+        self._initialize_flat_terrain()
 
     def _create_menu_bar(self):
         """Create the menu bar."""
@@ -205,41 +206,30 @@ class HeightmapGUI(tk.Tk):
         self.bind("<Control-minus>", lambda e: self.zoom_out())
         self.bind("<Control-0>", lambda e: self.zoom_fit())
 
-    def _generate_default_terrain(self):
+    def _initialize_flat_terrain(self):
         """
-        Generate default terrain on startup.
+        Initialize GUI with flat terrain for instant display.
 
-        Why after_idle:
-        - Called after window is fully rendered
-        - Prevents GUI freeze during init
-        - User sees window immediately
-        - Status bar shows "Generating..." feedback
+        Why flat terrain:
+        - Window appears instantly (no generation delay)
+        - User hasn't selected any settings/presets yet
+        - User must explicitly trigger generation via presets or Generate button
+        - UX best practice: Don't auto-generate without user input
 
-        Performance note:
-        - 4096x4096 takes ~60-120 seconds (CS2 requirement, not optional)
-        - User sees progress in status bar
-        - This is the ONLY valid resolution for CS2 heightmaps
-
-        CS2 Specification (wiki_instructions.pdf):
-        - Heightmaps MUST be 4096x4096 resolution
-        - Format: 16-bit grayscale PNG or TIFF
-        - Default height scale: 4096 meters
+        The heightmap is already initialized to zeros in __init__,
+        so we just need to create a simple preview.
         """
-        self.set_status("Generating terrain (4096x4096, may take 1-2 minutes)...")
-        self.update_idletasks()  # Force status update
+        # Heightmap is already zeros (flat) from __init__
+        # Just create a simple gray preview to show the canvas works
+        from PIL import Image
+        import numpy as np
 
-        # Generate terrain at CS2-required resolution (4096x4096)
-        self.heightmap = self.noise_gen.generate_perlin(
-            resolution=self.resolution,
-            scale=200.0,
-            octaves=6,
-            persistence=0.5,
-            lacunarity=2.0,
-            show_progress=False
-        )
+        # Create a simple gray preview (512x512 for display)
+        preview_array = np.full((512, 512, 3), 128, dtype=np.uint8)  # Mid-gray
+        preview_image = Image.fromarray(preview_array)
 
-        self.update_preview()
-        self.set_status("Ready")
+        self.preview.update_image(preview_image)
+        self.set_status("Ready - Select a preset or adjust parameters to generate terrain")
 
     def update_preview(self):
         """Update the preview canvas with current heightmap."""

@@ -102,11 +102,13 @@ python gui_main.py
 - **Keyboard Shortcuts**: Ctrl+N (New), Ctrl+S (Save), Ctrl+Z (Undo), Ctrl+Y (Redo)
 
 **Quick Workflow:**
-1. Launch GUI: `python gui_main.py`
-2. Select a preset (Mountains, Islands, etc.) from the left panel
+1. Launch GUI: `python gui_main.py` (opens instantly with blank preview)
+2. Click a preset (Mountains, Islands, etc.) to generate terrain (1-2 minutes)
 3. Adjust parameters using sliders (changes update after 500ms)
 4. Use File > Save to export heightmap
 5. Use File > Export to CS2 to copy directly to Cities Skylines 2
+
+**Note**: The GUI launches instantly with no auto-generation. You must click a preset or Generate button to create terrain.
 
 ### CLI Mode (For Automation)
 

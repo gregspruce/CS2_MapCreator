@@ -39,18 +39,20 @@ source venv/bin/activate
 python gui_main.py
 ```
 
-That's it! The GUI will open with:
-- Live preview of terrain (hillshade visualization)
+That's it! The GUI will open **instantly** with:
+- Empty preview canvas (flat gray terrain)
 - 7 preset buttons (Mountains, Islands, Canyons, etc.)
 - Parameter sliders (Scale, Octaves, Persistence, Lacunarity)
 - File menu to save and export to CS2
 
 **Quick workflow:**
-1. Click a preset (e.g., "Mountains")
-2. Wait 1-2 minutes for initial generation (4096x4096 = large!)
+1. Click a preset (e.g., "Mountains") - this triggers generation
+2. Wait 1-2 minutes for generation (4096x4096 = large!)
 3. Adjust sliders if desired (changes update after 500ms of inactivity)
 4. File > Save to export heightmap PNG
 5. File > Export to CS2 to send directly to game
+
+**IMPORTANT**: Terrain generation only happens when you click a preset or the Generate button. The GUI launches instantly with no auto-generation.
 
 **IMPORTANT**: All heightmaps are generated at **4096x4096 resolution** as required by Cities Skylines 2. This is not optional - the game will reject any other resolution.
 
@@ -122,10 +124,10 @@ C:/Users/[username]/AppData/LocalLow/Colossal Order/Cities Skylines II/Heightmap
 
 ## Troubleshooting
 
-### GUI freezes during startup
-- Normal! Initial terrain generation (4096x4096) takes 1-2 minutes
-- Status bar shows "Generating terrain..."
-- Window is responsive once generation completes
+### GUI shows gray screen
+- Normal! GUI starts with blank (flat) terrain
+- Click a preset button or Generate to create terrain
+- Generation takes 1-2 minutes for 4096x4096
 
 ### "Python not found"
 - Install Python 3.8+ from [python.org](https://www.python.org/downloads/)
