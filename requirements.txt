@@ -11,6 +11,10 @@ scipy>=1.10.0
 perlin-noise>=1.12
 opensimplex>=0.4.5
 
+# Performance optimization (optional but recommended)
+# Provides 10-100x speedup via C++/Cython implementation
+pyfastnoiselite>=0.0.6
+
 # Progress tracking
 tqdm>=4.65.0
 

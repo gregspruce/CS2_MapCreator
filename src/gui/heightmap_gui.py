@@ -21,6 +21,7 @@ from tkinter import ttk, messagebox, filedialog
 from typing import Optional
 import numpy as np
 from pathlib import Path
+import threading
 
 from ..heightmap_generator import HeightmapGenerator
 from ..state_manager import CommandHistory
@@ -30,6 +31,7 @@ from ..preset_manager import PresetManager
 from .preview_canvas import PreviewCanvas
 from .parameter_panel import ParameterPanel
 from .tool_palette import ToolPalette
+from .progress_dialog import ProgressDialog
 
 
 class HeightmapGUI(tk.Tk):
@@ -367,22 +369,78 @@ class HeightmapGUI(tk.Tk):
             self.set_status("Heightmap cleared")
 
     def generate_terrain(self):
-        """Generate terrain with current parameters."""
-        params = self.param_panel.get_parameters()
-        self.set_status("Generating terrain...")
+        """
+        Generate terrain with current parameters.
 
-        # Generate using noise generator
-        self.heightmap = self.noise_gen.generate_perlin(
-            resolution=self.resolution,
-            scale=params['scale'],
-            octaves=params['octaves'],
-            persistence=params['persistence'],
-            lacunarity=params['lacunarity'],
-            show_progress=False
+        Uses background thread to keep GUI responsive.
+
+        Why threading:
+        - 4096x4096 generation takes 1-2 minutes
+        - Running on main thread freezes GUI ("Not Responding")
+        - Background thread keeps UI responsive
+        - Progress dialog shows user something is happening
+        """
+        params = self.param_panel.get_parameters()
+
+        # Create progress dialog
+        progress_dialog = ProgressDialog(
+            self,
+            title="Generating Terrain",
+            message=f"Generating {self.resolution}x{self.resolution} terrain...\nThis may take 1-2 minutes.",
+            cancelable=False
         )
 
+        def generate_in_background():
+            """Run generation in background thread."""
+            try:
+                # Generate using noise generator
+                heightmap = self.noise_gen.generate_perlin(
+                    resolution=self.resolution,
+                    scale=params['scale'],
+                    octaves=params['octaves'],
+                    persistence=params['persistence'],
+                    lacunarity=params['lacunarity'],
+                    show_progress=False
+                )
+
+                # Update UI on main thread (Tkinter requirement)
+                self.after(0, lambda: self._on_generation_complete(heightmap, progress_dialog))
+
+            except Exception as e:
+                # Handle errors on main thread
+                self.after(0, lambda: self._on_generation_error(str(e), progress_dialog))
+
+        # Start background thread
+        thread = threading.Thread(target=generate_in_background, daemon=True)
+        thread.start()
+
+        # Show progress dialog (non-blocking)
+        progress_dialog.show()
+
+    def _on_generation_complete(self, heightmap: np.ndarray, progress_dialog: ProgressDialog):
+        """
+        Called when generation completes (on main thread).
+
+        Args:
+            heightmap: Generated terrain data
+            progress_dialog: Progress dialog to close
+        """
+        self.heightmap = heightmap
         self.update_preview()
-        self.set_status("Terrain generated")
+        progress_dialog.close()
+        self.set_status("Terrain generated successfully")
+
+    def _on_generation_error(self, error_msg: str, progress_dialog: ProgressDialog):
+        """
+        Called when generation fails (on main thread).
+
+        Args:
+            error_msg: Error message
+            progress_dialog: Progress dialog to close
+        """
+        progress_dialog.close()
+        messagebox.showerror("Generation Error", f"Failed to generate terrain:\n\n{error_msg}")
+        self.set_status("Generation failed")
 
     def zoom_in(self):
         """Zoom in on the preview."""
