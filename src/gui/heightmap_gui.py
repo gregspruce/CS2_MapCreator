@@ -591,11 +591,11 @@ class HeightmapGUI(tk.Tk):
             heightmap = TerrainRealism.make_realistic(
                 heightmap,
                 terrain_type=terrain_type,
-                enable_warping=False,  # Coherence already provides structure
-                enable_ridges=True,    # Still sharpen peaks
-                enable_valleys=True,   # Still carve valleys
+                enable_warping=True,   # ENABLE for natural curved features
+                enable_ridges=True,    # Sharpen peaks
+                enable_valleys=True,   # Carve valleys
                 enable_plateaus=(terrain_type in ['highlands', 'mesas']),
-                enable_erosion=True    # Still add weathering
+                enable_erosion=True    # Add weathering
             )
 
             # Step 5: Update preview

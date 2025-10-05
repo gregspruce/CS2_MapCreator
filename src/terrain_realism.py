@@ -61,13 +61,13 @@ class TerrainRealism:
         warp_scale = int(resolution * 0.02)  # Large scale for smooth warps
 
         # Create smooth random offset fields
-        np.random.seed(42)  # Reproducible
+        # Use heightmap-derived offsets for variation (no fixed seed!)
         warp_x = ndimage.gaussian_filter(
-            np.random.rand(resolution, resolution) * 2 - 1,
+            heightmap * 2 - 1,  # Use heightmap for natural variation
             sigma=warp_scale
         )
         warp_y = ndimage.gaussian_filter(
-            np.random.rand(resolution, resolution) * 2 - 1,
+            np.rot90(heightmap) * 2 - 1,  # Rotated heightmap for Y direction
             sigma=warp_scale
         )
 

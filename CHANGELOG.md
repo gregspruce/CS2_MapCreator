@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Terrain Looks Too Random - FIXED**: Enable domain warping and remove fixed seed
+  - **Problem**: Terrain looked like "simple pattern instead of useful noise" - too random, not geological
+  - **Root causes**:
+    1. Domain warping was DISABLED (enable_warping=False)
+    2. Domain warping had ANOTHER fixed seed (line 64: np.random.seed(42))
+    3. No geological post-processing to add natural curved features
+  - **Solution**:
+    1. Enabled domain warping for natural curved mountain ranges
+    2. Removed fixed seed - use heightmap-derived offsets instead
+    3. Warping creates flowing valleys and coherent geological structure
+  - **Impact**: Terrain now has natural geological features instead of smoothed random blobs
+  - Files: `src/terrain_realism.py:64-72`, `src/gui/heightmap_gui.py:594`
+
 - **Terrain Too Noisy - CRITICAL FIX**: Reduced detail weight from 0.6 to 0.2 for buildable areas
   - **Problem**: Detail noise weight (0.6) was HIGHER than base (0.3), creating bumpy terrain everywhere
   - **Result**: "Almost 0 buildable area" - too many small peaks and valleys evenly distributed
