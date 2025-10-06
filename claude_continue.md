@@ -1,12 +1,155 @@
 # CS2 Heightmap Generator - Session Continuation Document
 
-**Last Updated**: 2025-10-06 05:24:39 (TERRAIN COHERENCE ANALYSIS)
-**Current Version**: 2.4.2 (unreleased)
-**Status**: Phase 1: Playable Foundation - COMPLETE + GUI INTEGRATED + BUGFIX APPLIED ✓
+**Last Updated**: 2025-10-06 05:45:42 (STRATEGIC IMPLEMENTATION PLAN COMPLETE)
+**Current Version**: 2.4.2 (unreleased) → v2.0.0 development starting
+**Branch**: `feature/terrain-gen-v2-overhaul` (created)
+**Status**: Terrain Generation v2.0 Overhaul - Strategic Planning Complete, Implementation Ready
 
 ---
 
 ## Quick Status
+
+### 🚀 TERRAIN GENERATION V2.0 OVERHAUL - STRATEGIC PLAN COMPLETE (2025-10-06 05:45:42) ✓
+
+**Objective**: Create comprehensive strategic implementation plan for groundbreaking terrain generation system
+
+**What Was Accomplished** (2025-10-06 session):
+
+1. **Analyzed Combined Research** (60+ minutes)
+   - Read `map_gen_enhancement.md` - External deep research (Claude Desktop)
+   - Read `examples/examplemaps/terrain_coherence_analysis.md` - Internal analysis
+   - Identified convergent validation: BOTH analyses independently identified hydraulic erosion as transformative
+
+2. **Strategic Planning with Sequential Thinking** (10 thoughts, 45 minutes)
+   - Analyzed implementation dependencies and optimal ordering
+   - Evaluated staged release strategy vs sequential perfectionism
+   - Designed 3-stage adaptive implementation with decision points
+   - Assessed performance budgets and optimization strategies
+   - Planned testing approach and documentation requirements
+   - Optimized timeline and resource allocation
+
+3. **Created Feature Branch**
+   - Branch: `feature/terrain-gen-v2-overhaul`
+   - Added `map_gen_enhancement.md` to repository
+   - Ready for Stage 1 implementation
+
+4. **Updated All Documentation**
+   - `TODO.md`: Complete 3-stage roadmap with detailed tasks
+   - `enhanced_project_plan.md`: Strategic architecture and convergent validation
+   - `claude_continue.md`: This comprehensive status update
+
+**Key Findings**:
+
+**CONVERGENT VALIDATION** - The Inevitable Solution:
+- Internal analysis (example heightmap evaluation) → Hydraulic erosion transformative
+- External research (academic papers + industry tools) → Hydraulic erosion transformative
+- **Conclusion**: This is not an arbitrary choice - it's the industry-standard, proven solution used by World Machine, Gaea, and all professional terrain generators
+
+**The Fundamental Gap**:
+```
+Current System:          Nature's Process:
+Noise → Masks           Tectonics (WHY)
+  ↓                        ↓
+Rivers → Coasts         Erosion (HOW)
+  ↓                        ↓
+Random patterns         Detail (local variation)
+```
+
+**The Solution - Process-Based Generation**:
+1. **Tectonic Foundation**: Define fault lines, create linear mountain ranges
+2. **Hydraulic Erosion**: Simulate water flow, carve dendritic valleys
+3. **Detail Refinement**: Add local variation within geological constraints
+
+**Strategic Implementation - Staged Value Delivery**:
+
+**STAGE 1: Foundation (2 weeks) - COMMIT NOW** 🔥
+- Week 1: Quick wins (domain warping enhancement, ridge continuity)
+- Week 1-2: Hydraulic erosion implementation (pipe model algorithm)
+- Target: 70-80% realism improvement
+- Performance: 11-20s generation time (within budget)
+- Deliverable: v2.0.0 with dendritic drainage patterns
+
+**Success Criteria**:
+- Dendritic drainage patterns visible
+- Visual comparison >4.0/5.0 vs example heightmaps
+- Generation time <30s balanced mode
+- CS2 import successful
+- User feedback: "Looks like real geography"
+
+**Decision Point**: If Stage 1 successful → Ship v2.0.0, gather feedback, proceed to Stage 2
+
+**STAGE 2: Geological Realism (2 weeks) - CONDITIONAL** 🌍
+- Week 3: Tectonic structure (fault lines, linear ranges)
+- Week 3-4: River network improvements (hierarchical, dam-suitable valleys)
+- Target: Add geological foundation and CS2 gameplay features
+- Performance: 15-25s generation time
+- Deliverable: v2.1.0 with tectonic justification
+
+**Success Criteria**:
+- Mountain ranges linear and continuous
+- 45-55% buildable terrain maintained
+- 2-3 dam-suitable valleys per map
+- Visual comparison still >4.0/5.0
+
+**STAGE 3: Professional Polish (2-3 weeks) - CONDITIONAL** ✨
+- Week 5: Unified pipeline architecture (multi-scale)
+- Week 5-6: Coastal integration (fjords, harbors) + buildability validation
+- Week 7: Final testing, documentation, examples
+- Target: Professional-grade output
+- Performance: 22-30s balanced mode
+- Deliverable: v2.2.0 - "Best heightmap generator for CS2"
+
+**Success Criteria**:
+- All quality modes within performance targets
+- Natural harbors visible
+- Buildability guaranteed 45-55%
+- Community recognition
+
+**Why This Approach**:
+- **Staged delivery**: Early value (v2.0 in 2 weeks), not 7 weeks wait
+- **Adaptive planning**: Pivot based on results, not committed to 7 weeks
+- **User validation**: Real CS2 testing after each stage
+- **Risk mitigation**: If Stage 1 insufficient, adjust before more investment
+- **CLAUDE.md compliant**: Additive changes, backward compatible
+
+**Performance Budget Analysis**:
+
+Optimized baseline (using coherent_terrain_generator_optimized.py):
+- Base generation: 5-10s (vs 10-25s unoptimized)
+- Quick wins: +1-2s
+- Hydraulic erosion (50 iter, 1024 res): +5-8s
+- **Stage 1 Total**: 11-20s ✓ UNDER 30s target
+
+With all stages:
+- Base + quick wins: 6-12s
+- Erosion: +5-8s
+- Tectonics + rivers: +2-4s
+- Pipeline + coastal + validation: +3-5s
+- **Stage 3 Total**: 22-30s balanced mode ✓ ACHIEVES TARGET
+
+**Technical Resources Referenced**:
+- Hydraulic erosion: Mei et al. (2007) pipe model paper
+- Reference implementation: https://github.com/dandrino/terrain-erosion-3-ways
+- Tectonic structure: Cordonnier et al. (2016) uplift-based generation
+- Domain warping: Inigo Quilez technique (recursive warping)
+- River networks: Red Blob Games drainage basin algorithm
+
+**Deliverables Created**:
+1. `TODO.md` - Complete 3-stage roadmap with 200+ task items
+2. `enhanced_project_plan.md` - Strategic architecture with convergent validation
+3. `claude_continue.md` - This comprehensive status update (correct timestamps)
+4. Branch: `feature/terrain-gen-v2-overhaul` - Ready for implementation
+
+**Next Immediate Steps**:
+1. **Begin Stage 1 implementation** (Quick Win 1: Enhanced Domain Warping - 4 hours)
+2. **Research hydraulic erosion algorithms** (Review papers, choose pipe vs droplet)
+3. **Create `src/features/hydraulic_erosion.py`** (Core erosion simulator)
+4. **Test incrementally** with visual comparison against example heightmaps
+5. **Ship v2.0.0** when Stage 1 criteria met
+
+**Status**: READY TO IMPLEMENT - All planning complete, branch created, documentation updated
+
+---
 
 ### TERRAIN COHERENCE ANALYSIS (2025-10-06 05:24:39) ✓
 **Objective**: Analyze professional CS2 example maps and identify improvements for geological realism

@@ -1,21 +1,88 @@
 # Enhanced Project Plan: CS2 Terrain Generator Improvements
 
 **Project:** CS2_Map Heightmap Generator Enhancement
-**Date:** 2025-10-05
-**Analysis Type:** Ultra-Deep (Sequential Thinking + Multi-Agent + Context7)
-**Target:** Transform from basic noise generator to production-ready terrain system
+**Last Updated:** 2025-10-06
+**Analysis Type:** Convergent Multi-Source (Internal Analysis + External Deep Research)
+**Current Phase:** Terrain Generation v2.0 Overhaul - Strategic Planning Complete
 
 ---
 
-## Executive Summary
+## 🚀 GROUNDBREAKING: Terrain Generation v2.0 Overhaul
+
+**Status**: Strategic plan complete, implementation starting
+**Branch**: `feature/terrain-gen-v2-overhaul`
+**Research Sources**:
+- Internal coherence analysis: `examples/examplemaps/terrain_coherence_analysis.md`
+- External deep research: `map_gen_enhancement.md`
+- Combined implementation plan: `TODO.md` (Stages 1-3)
+
+### Convergent Validation: Why This Will Succeed
+
+**CRITICAL FINDING**: Both independent analyses (internal codebase review + external research compilation) identified **hydraulic erosion** as the transformative feature. This convergence is remarkable and validates the inevitable solution.
+
+**The Fundamental Problem**:
+- Current: Generate features independently (noise → masks → rivers → coasts)
+- Nature: Generate through geological processes (tectonics → erosion → detail)
+- Gap: Missing causal relationships between features
+
+**The Inevitable Solution**:
+```
+Process-Based Generation:
+1. Tectonic Foundation → WHY mountains exist WHERE they do
+2. Hydraulic Erosion → HOW water shapes landscape over time
+3. Detail Refinement → Local variation within geological constraints
+```
+
+### Strategic Implementation: Staged Value Delivery
+
+**Stage 1: Foundation (2 weeks)** - COMMIT NOW
+- Quick Wins: Domain warping + ridge continuity
+- Hydraulic Erosion: THE transformative feature
+- Target: 70-80% realism improvement, <30s generation
+- Deliverable: v2.0.0 with dendritic drainage patterns
+
+**Stage 2: Geological Realism (2 weeks)** - CONDITIONAL
+- Tectonic Structure: Linear mountain ranges with fault lines
+- River Networks: Dam-suitable valleys for CS2 gameplay
+- Deliverable: v2.1.0 with geological foundation
+
+**Stage 3: Professional Polish (2-3 weeks)** - CONDITIONAL
+- Unified Pipeline: Multi-scale architecture (continental → regional → local)
+- Coastal Integration: Natural harbors, fjords, headlands
+- Buildability Validation: Guaranteed 45-55% flat terrain
+- Deliverable: v2.2.0 - "Best heightmap generator for CS2"
+
+**Decision Points**: Each stage has success criteria. Proceed to next stage only if criteria met. This adaptive approach allows pivoting based on results and user feedback.
+
+**Performance Budget**:
+- Stage 1: 11-20s (optimized base + erosion)
+- Stage 2: 15-25s (+ tectonics + rivers)
+- Stage 3: 22-30s balanced mode (full pipeline)
+
+### Why This Supersedes Previous Phase 2 Plan
+
+**Previous Plan**: Droplet erosion, flow accumulation rivers, thermal erosion
+**New Plan**: Comprehensive geological simulation with proven algorithms
+
+**Key Differences**:
+1. **Hydraulic erosion** (pipe model) vs droplet erosion - higher quality, standard algorithm
+2. **Tectonic foundation** first - creates geological justification for all features
+3. **Multi-scale pipeline** - proper scale hierarchy prevents conflicts
+4. **Staged delivery** - early value, adaptive planning, user validation
+
+**Research Validation**: External research independently confirms every gap identified internally. The solution is not arbitrary - it's the industry-standard approach used by World Machine, Gaea, and all professional terrain tools.
+
+---
+
+## Executive Summary (Original Plan)
 
 This plan synthesizes findings from Claude Deep Research, sequential thinking analysis, and parallel research-expert investigation to create a practical, phased implementation strategy for enhancing the CS2_Map terrain generator.
 
 **Current State:** Basic Perlin noise generator producing "evenly-distributed bumps" that are obviously procedural and not sufficiently buildable for Cities Skylines 2.
 
-**Target State:** Production-ready generator creating geographically plausible, gameplay-optimized terrain with 45-55% buildable areas (0-5% slopes), realistic erosion features, and physics-based water systems.
+**Target State (Updated):** Geological terrain synthesizer creating process-based terrain that tells a geological story, matches professional heightmap quality, and delivers 45-55% buildable areas with natural dam-suitable valleys.
 
-**Key Insight:** The highest-impact improvements are also the easiest to implement, enabling rapid value delivery through phased development.
+**Key Insight:** Hydraulic erosion is the transformative feature. All other enhancements support and enhance the erosion-based foundation.
 
 ---
 
