@@ -70,3 +70,9 @@ htmlcov/
 
 # Documentation build
 docs/_build/
+# NumPy binary files (large, should not be in git)
+*.npy
+
+# Test output data
+docs/results/**/*.npy
+docs/results/**/*.png
