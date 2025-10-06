@@ -54,10 +54,11 @@ Process-Based Generation:
 
 **Decision Points**: Each stage has success criteria. Proceed to next stage only if criteria met. This adaptive approach allows pivoting based on results and user feedback.
 
-**Performance Budget**:
-- Stage 1: 11-20s (optimized base + erosion)
-- Stage 2: 15-25s (+ tectonics + rivers)
-- Stage 3: 22-30s balanced mode (full pipeline)
+**Performance Budget (UPDATED with Numba integration)**:
+- Stage 1: 7-14s (optimized base + Numba-accelerated erosion) ⚡ **30-50% faster!**
+- Stage 2: 9-17s (+ tectonics + Numba-optimized rivers) ⚡ **25-35% faster!**
+- Stage 3: 11-21s balanced mode (full pipeline + vectorization) ⚡ **35-45% faster!**
+- Stage 4 (optional): 8-13s (GPU-accelerated for NVIDIA users) - LOW ROI, defer
 
 ### Why This Supersedes Previous Phase 2 Plan
 
@@ -71,6 +72,36 @@ Process-Based Generation:
 4. **Staged delivery** - early value, adaptive planning, user validation
 
 **Research Validation**: External research independently confirms every gap identified internally. The solution is not arbitrary - it's the industry-standard approach used by World Machine, Gaea, and all professional terrain tools.
+
+### Performance Integration Strategy
+
+**Critical Decision**: Integrate Numba JIT compilation into initial implementation, not as separate optimization phase.
+
+**Why This Matters**:
+- Original plan: Implement erosion → test → optimize later
+- Optimized plan: Implement erosion WITH Numba from day 1
+- Benefit: No code rewrite, immediate performance, one testing cycle
+
+**Performance Research Source**: `performance_improvement.md` (Claude Desktop analysis)
+- **Key Finding**: Numba provides 5-8× speedup for erosion with minimal effort (2-3 days)
+- **ROI Analysis**: GPU adds 10-20× speedup but requires 1-2 weeks + NVIDIA hardware
+- **Recommendation**: Implement Numba immediately, defer GPU until user demand
+
+**Integrated Approach**:
+1. **Stage 1**: Add Numba to erosion implementation (Days 1-2: setup, Days 3-7: implement WITH @numba.jit)
+2. **Stage 2**: Add Numba to river carving during implementation (+0.5 days)
+3. **Stage 3**: Ensure all code follows NumPy vectorization best practices
+4. **Stage 4 (optional)**: GPU acceleration only if user feedback demands <10s generation
+
+**Performance Validation**:
+- Each stage includes performance benchmarking as part of testing
+- Success criteria include performance targets (not just visual quality)
+- Graceful fallback required for systems without Numba
+
+**Expected Results**:
+- Stage 1: 7-14s (vs 11-20s estimated) - Achieves professional quality at excellent speed
+- Stage 3: 11-21s (vs 22-30s estimated) - Better than original target WITHOUT GPU
+- Conclusion: GPU becomes truly optional, not required for good performance
 
 ---
 

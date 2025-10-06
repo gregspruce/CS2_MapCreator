@@ -19,10 +19,11 @@
 
 ---
 
-### STAGE 1: Foundation - Quick Wins + Hydraulic Erosion (Weeks 1-2) 🔥
+### STAGE 1: Foundation - Quick Wins + Hydraulic Erosion + Performance (Weeks 1-2) 🔥
 
-**Objective**: Deliver transformative realism improvement in 2 weeks
-**Target**: 70-80% improvement in visual quality, generation time <30s
+**Objective**: Deliver transformative realism improvement in 2 weeks with professional performance
+**Target**: 70-80% improvement in visual quality, generation time <15s (7-14s optimized!)
+**Performance Strategy**: Numba JIT integrated from day 1 (5-8× speedup with minimal effort)
 
 #### Week 1: Quick Wins (3-4 days)
 - [ ] **Quick Win 1: Enhanced Domain Warping** (4 hours)
@@ -37,24 +38,30 @@
   - Connect nearby ridges using Dijkstra's algorithm
   - Expected impact: +30% feature continuity
 
-#### Week 1-2: Hydraulic Erosion Implementation (7-9 days)
-- [ ] **Task 1.1: Algorithm Research & Selection** (Days 1-2)
+#### Week 1-2: Hydraulic Erosion Implementation WITH Performance (8-10 days)
+- [ ] **Task 1.1: Algorithm Research & Numba Setup** (Days 1-2)
   - Review pipe model paper: https://inria.hal.science/inria-00402079/document
   - Study reference: https://github.com/dandrino/terrain-erosion-3-ways
   - Choose algorithm: pipe model (quality) vs droplet (speed)
-  - Target: 5-10s erosion at 1024x1024
-  - Deliverable: Algorithm selection document
+  - **NEW**: Install Numba: `pip install numba`
+  - **NEW**: Test Numba basic functionality and JIT compilation
+  - **NEW**: Design erosion API to be Numba-compatible (NumPy arrays only)
+  - Target: 1-2s erosion at 1024x1024 (WITH Numba optimization)
+  - Deliverable: Algorithm selection document + Numba setup complete
 
-- [ ] **Task 1.2: Core Erosion Implementation** (Days 3-7)
+- [ ] **Task 1.2: Core Erosion Implementation WITH Numba** (Days 3-7)
   - Create: `src/features/hydraulic_erosion.py`
-  - Implement `HydraulicErosionSimulator` class:
-    - `__init__`: erosion_rate, deposition_rate, evaporation_rate, sediment_capacity
-    - `simulate_erosion()`: Per iteration flow → erode → transport → deposit
+  - Implement `HydraulicErosionSimulator` class with TWO implementations:
+    - **FAST PATH**: `erosion_iteration_numba()` with `@numba.jit(nopython=True, parallel=True)`
+    - **FALLBACK**: `erosion_iteration_python()` pure NumPy for systems without Numba
+    - `simulate_erosion()`: Auto-detect best implementation (try Numba, fallback if unavailable)
     - `fast_erosion_multiresolution()`: Downsample → erode → upsample pattern
-  - D8 flow direction calculation (reuse from river_generator.py)
+  - D8 flow direction calculation (reuse from river_generator.py, add Numba optimization)
   - Sediment transport: `C = Kc × sin(slope) × velocity`
   - Erosion-deposition logic with progress callback
-  - Deliverable: Erosion completes in 5-10s at 1024 res
+  - **NEW**: Add WHY-focused comments explaining Numba usage per CLAUDE.md
+  - **NEW**: Implement graceful fallback with user message if Numba unavailable
+  - Deliverable: Erosion completes in 1-2s at 1024 res (Numba) or 5-10s (fallback)
 
 - [ ] **Task 1.3: Pipeline Integration** (Days 8-10)
   - Modify: `src/coherent_terrain_generator.py`
@@ -63,27 +70,42 @@
   - Update `generate_heightmap()` to call erosion when enabled
   - Deliverable: Integrated erosion with quality levels
 
-- [ ] **Task 1.4: Testing & Validation** (Days 11-12)
-  - Generate test heightmaps with erosion enabled
-  - Visual comparison: Check dendritic drainage patterns
-  - Performance benchmark: Measure total time (target <30s)
-  - Compare with example heightmaps (examples/examplemaps/)
-  - CS2 import test: Verify loads and plays correctly
-  - Deliverable: Test report with before/after comparison
+- [ ] **Task 1.4: Testing & Validation WITH Performance Benchmarks** (Days 11-12)
+  - **Functional Testing:**
+    - Generate test heightmaps with erosion enabled
+    - Visual comparison: Check dendritic drainage patterns
+    - Compare with example heightmaps (examples/examplemaps/)
+    - CS2 import test: Verify loads and plays correctly
+  - **Performance Testing (NEW):**
+    - Benchmark erosion time: Target <2s at 1024 res with Numba
+    - Benchmark total generation: Target <15s balanced mode
+    - Test first run vs subsequent runs (JIT compilation overhead)
+    - Performance regression test: Numba vs pure Python >5× speedup
+    - Test on multiple CPU core counts (2-core, 4-core, 8-core)
+  - **Cross-Platform Testing:**
+    - Test on Windows, Linux (if available)
+    - Test fallback behavior (Numba not installed)
+    - Verify both implementations produce identical results (np.allclose test)
+  - Deliverable: Test report with before/after comparison + performance benchmarks
 
 #### Week 2: Documentation & Release Prep (2-3 days)
-- [ ] **Update README.md**: Add "Hydraulic Erosion" section with parameters
-- [ ] **Update CHANGELOG.md**: Create v2.0.0 section documenting erosion
-- [ ] **Create EROSION.md**: Algorithm deep-dive, parameters, theory
+- [ ] **Update requirements.txt**: Add `numba>=0.56.0` and `scipy>=1.7.0`
+- [ ] **Update README.md**: Add "Performance" section explaining Numba optimization
+- [ ] **Update CHANGELOG.md**: Create v2.0.0 section documenting erosion + performance
+- [ ] **Create EROSION.md**: Algorithm deep-dive, parameters, theory, performance details
+- [ ] **Create PERFORMANCE.md**: Numba explanation, benchmarks, troubleshooting
 - [ ] **Update examples/**: Add erosion-enabled sample heightmaps
-- [ ] **GUI integration**: Add erosion controls with tooltips
+- [ ] **GUI integration**: Add erosion controls with tooltips + first-run JIT compilation message
 
-**Stage 1 Success Criteria**:
-- [x] Dendritic drainage patterns visible in generated terrain
-- [x] Visual comparison matches example heightmap quality (>4.0/5.0 rating)
-- [x] Generation time <30s in balanced mode
-- [x] CS2 import successful with playable terrain
-- [x] User feedback: "This looks like real geography, not noise"
+**Stage 1 Success Criteria (UPDATED)**:
+- [ ] Dendritic drainage patterns visible in generated terrain
+- [ ] Visual comparison matches example heightmap quality (>4.0/5.0 rating)
+- [ ] **Performance**: Generation time <15s balanced mode (improved from <30s!)
+- [ ] **Performance**: Erosion time <2s at 1024 res with Numba
+- [ ] **Performance**: Numba speedup >5× vs pure Python fallback
+- [ ] CS2 import successful with playable terrain
+- [ ] Graceful fallback works on systems without Numba
+- [ ] User feedback: "This looks like real geography, not noise"
 
 **Decision Point After Stage 1**:
 - If success criteria met → Ship v2.0.0, gather user feedback, decide on Stage 2
@@ -91,10 +113,11 @@
 
 ---
 
-### STAGE 2: Geological Realism - Tectonics + Rivers (Weeks 3-4) 🌍
+### STAGE 2: Geological Realism - Tectonics + Rivers + Performance (Weeks 3-4) 🌍
 
-**Objective**: Add geological foundation and dam-suitable valleys
+**Objective**: Add geological foundation and dam-suitable valleys with continued performance optimization
 **Conditional**: Proceed only if Stage 1 achieves success criteria
+**Performance Target**: 9-17s total generation (improved from Stage 1's 7-14s due to additional features)
 
 #### Week 3: Tectonic Structure (5-6 days)
 - [ ] **Task 2.1: Fault Line Generation**
@@ -113,14 +136,16 @@
   - Octave modulation: buildable zones (1-2 octaves), scenic zones (1-8 octaves)
   - Domain warping with strength 40-80
 
-#### Week 3-4: River Network Improvements (4-5 days)
-- [ ] **Task 3.1: Hierarchical River Generation**
+#### Week 3-4: River Network Improvements WITH Performance (4.5-5.5 days)
+- [ ] **Task 3.1: Hierarchical River Generation WITH Numba**
   - Modify: `src/features/river_generator.py`
   - Implement `HierarchicalRiverGenerator`:
     - `generate_from_outlets()`: Grow network upstream from coast
-    - `calculate_flow_accumulation()`: D8 algorithm (already exists)
+    - `calculate_flow_accumulation()`: D8 algorithm (already exists, add Numba JIT)
     - Horton-Strahler stream ordering
   - Replace random placement with flow-accumulation-based
+  - **NEW**: Add Numba JIT to river carving loops for 3-5× speedup
+  - **NEW**: Optimize bottleneck operations identified in profiling
 
 - [ ] **Task 3.2: Dam-Suitable Valley Generation**
   - Implement `create_dam_suitable_valley()`:
@@ -138,18 +163,21 @@
 - [ ] CS2 gameplay test: Dam placement works
 - [ ] Documentation updates for v2.1.0
 
-**Stage 2 Success Criteria**:
-- [x] Mountain ranges are linear and geologically justified
-- [x] 45-55% buildable terrain maintained
-- [x] At least 2-3 dam-suitable valleys per map
-- [x] Visual comparison still >4.0/5.0 rating
+**Stage 2 Success Criteria (UPDATED)**:
+- [ ] Mountain ranges are linear and geologically justified
+- [ ] 45-55% buildable terrain maintained
+- [ ] At least 2-3 dam-suitable valleys per map
+- [ ] Visual comparison still >4.0/5.0 rating
+- [ ] **Performance**: Total generation time 9-17s (acceptable range)
+- [ ] **Performance**: River generation optimized with Numba (3-5× speedup)
 
 ---
 
-### STAGE 3: Professional Polish - Pipeline + Validation (Weeks 5-7) ✨
+### STAGE 3: Professional Polish - Pipeline + Validation + Vectorization (Weeks 5-7) ✨
 
-**Objective**: Create unified architecture and professional-grade output
+**Objective**: Create unified architecture and professional-grade output with final optimizations
 **Conditional**: Proceed only if Stages 1-2 successful
+**Performance Target**: 11-21s total generation (professional quality at excellent speed!)
 
 #### Week 5: Unified Pipeline Architecture (4-5 days)
 - [ ] **Task 4.1: Pipeline Design & Implementation**
@@ -172,30 +200,152 @@
     - Headlands: ridges extending into water
   - Use erosion flow accumulation data
 
-- [ ] **Task 6.1: Buildability Validation System**
+- [ ] **Task 6.1: Buildability Validation System WITH Vectorization**
   - Create: `src/validation/buildability_validator.py`
   - Implement `BuildabilityValidator`:
-    - `calculate_slopes()`: Slope percentage per cell
-    - `analyze_buildability()`: Statistics and problem areas
-    - `enforce_buildability_constraint()`: Targeted smoothing
+    - `calculate_slopes()`: Slope percentage per cell (use np.gradient, fully vectorized)
+    - `analyze_buildability()`: Statistics and problem areas (NumPy operations)
+    - `enforce_buildability_constraint()`: Targeted smoothing (vectorized where possible)
   - Smart Blur: strength depends on elevation difference
   - Iterative refinement until 45-55% met
+  - **NEW**: Ensure all operations use NumPy vectorization (no Python loops)
+  - **NEW**: Profile and optimize any bottlenecks
 
 #### Week 7: Final Testing & Documentation (5-7 days)
 - [ ] Complete pipeline integration testing
-- [ ] Performance benchmarks: fast (<12s), balanced (<30s), maximum (<60s)
+- [ ] **Performance benchmarks (UPDATED TARGETS)**:
+  - Fast mode: <10s (skip erosion, minimal features)
+  - Balanced mode: 11-21s (full pipeline with Numba) ← PRIMARY TARGET
+  - Maximum mode: 25-35s (higher quality, more iterations)
 - [ ] Regression tests: existing presets still work
 - [ ] Community validation: Share on Reddit/forums
-- [ ] Complete documentation: ADVANCED_USAGE.md, TROUBLESHOOTING.md
+- [ ] Complete documentation: ADVANCED_USAGE.md, TROUBLESHOOTING.md, update PERFORMANCE.md
 - [ ] Create professional example heightmaps
 - [ ] Update all presets for new pipeline
 - [ ] Release v2.2.0
 
-**Stage 3 Success Criteria**:
-- [x] All quality modes within performance targets
-- [x] Natural harbors visible in coastlines
-- [x] Buildability guaranteed at 45-55%
-- [x] Community feedback: "Best heightmap generator for CS2"
+**Stage 3 Success Criteria (UPDATED)**:
+- [ ] All quality modes within performance targets (see above)
+- [ ] Natural harbors visible in coastlines
+- [ ] Buildability guaranteed at 45-55%
+- [ ] **Performance**: Balanced mode 11-21s (professional quality, excellent speed)
+- [ ] **Performance**: All code properly vectorized (NumPy best practices)
+- [ ] Community feedback: "Best heightmap generator for CS2"
+
+---
+
+### STAGE 4: GPU Acceleration (Optional, 1-2 weeks) 🚀
+
+**Objective**: Add GPU acceleration for users demanding <10s generation time
+**Conditional**: ONLY if user demand justifies effort (unlikely given Stage 3 achieves 11-21s)
+**Performance Target**: 8-13s total generation (marginal improvement)
+**ROI Analysis**: LOW - saves 3-8s for 1-2 weeks effort + NVIDIA GPU requirement
+
+**When to Implement**:
+- User feedback: "11-21s is too slow, need <10s"
+- Professional use case: Batch generation of many maps
+- Marketing: "GPU-accelerated for maximum performance"
+
+#### Week 1: CuPy GPU Implementation (5 days)
+- [ ] **Task 7.1: GPU Setup & Testing**
+  - Document GPU requirements (NVIDIA GPU, CUDA Toolkit)
+  - Create GPU detection function
+  - Install CuPy: `pip install cupy-cuda12x` (version matches CUDA)
+  - Test GPU availability and capabilities
+
+- [ ] **Task 7.2: Port Erosion to CuPy**
+  - Create: `src/features/hydraulic_erosion_gpu.py`
+  - Implement `simulate_erosion_gpu()` using CuPy arrays
+  - Convert NumPy operations to CuPy equivalents
+  - Optimize CPU→GPU→CPU data transfers (minimize overhead)
+  - Target: Erosion time 0.1-0.2s (10-20× faster than Numba's 1-2s)
+
+- [ ] **Task 7.3: Automatic GPU/CPU Selection**
+  - Implement `simulate_erosion_auto()`: Try GPU, fallback to CPU (Numba)
+  - Add user controls: GPU enable/disable toggle
+  - Display GPU status in GUI (model, VRAM, enabled/disabled)
+
+#### Week 2: Testing & Documentation (5 days)
+- [ ] Test on multiple GPU models (RTX 3060, GTX 1660, etc.)
+- [ ] Test fallback behavior (no GPU, insufficient VRAM)
+- [ ] Memory usage profiling (ensure <2GB VRAM for 4096×4096)
+- [ ] Performance benchmarking vs CPU (Numba)
+- [ ] Update documentation: GPU requirements, installation, troubleshooting
+- [ ] Release v2.3.0 (GPU-accelerated edition)
+
+**Stage 4 Success Criteria**:
+- [ ] GPU detection works reliably
+- [ ] Erosion time <0.5s on NVIDIA GPUs
+- [ ] Total generation time 8-13s balanced mode with GPU
+- [ ] Graceful fallback to CPU if GPU unavailable
+- [ ] Documentation clear on GPU requirements
+- [ ] User feedback: "GPU mode is noticeably faster" (if implemented)
+
+**Decision**: Defer Stage 4 until user demand confirmed. Stage 3's 11-21s is excellent performance.
+
+---
+
+## Performance Budget Summary (All Stages)
+
+**Integrated Performance Strategy**: Numba JIT compilation integrated from Stage 1, providing 5-8× speedup with minimal effort.
+
+### Stage 1: Foundation + Performance (Weeks 1-2)
+**Components**:
+- Base generation (optimized): 5-10s
+- Quick wins (domain warping, ridge continuity): +1-2s
+- **Hydraulic erosion (Numba-optimized, 1024 res)**: +1-2s ⭐
+- **Total**: 7-14s (first run: 9-16s with JIT compilation)
+
+**vs Original Estimate**: 11-20s without Numba → **30-50% faster!**
+
+### Stage 2: Geological + Rivers (Weeks 3-4)
+**Components**:
+- Base + quick wins: 6-12s
+- Erosion (Numba): +1-2s
+- Tectonics: +0.5-1s
+- **Rivers (Numba-optimized)**: +1-2s ⭐ (vs 2-4s unoptimized)
+- **Total**: 9-17s
+
+**vs Original Estimate**: 15-25s without Numba → **25-35% faster!**
+
+### Stage 3: Professional Polish (Weeks 5-7)
+**Components**:
+- Base + quick wins: 6-12s
+- Erosion (Numba): +1-2s
+- Tectonics + rivers (Numba): +1.5-3s
+- **Buildability validation (vectorized)**: +0.5-1s ⭐
+- Coastal features: +2-3s
+- **Total**: 11-21s balanced mode
+
+**vs Original Estimate**: 22-30s without optimization → **35-45% faster!**
+
+### Stage 4: GPU Acceleration (Optional)
+**Components**:
+- Base + quick wins: 6-12s
+- **Erosion (GPU-accelerated)**: +0.1-0.2s 🚀 (vs 1-2s Numba)
+- Tectonics + rivers: +1.5-3s
+- Buildability + coastal: +2.5-4s
+- **Total**: 8-13s
+
+**ROI Analysis**: Saves 3-8s for 1-2 weeks effort + GPU requirement → **LOW priority**
+
+### Key Insights
+
+1. **Numba provides 90% of benefits for 10% of effort**
+   - Stage 1 erosion: 5-8s → 1-2s (5-8× speedup)
+   - Stage 2 rivers: 2-4s → 1-2s (2-4× speedup)
+   - Total investment: +1 day in Stage 1, +0.5 days in Stage 2
+
+2. **GPU provides diminishing returns**
+   - Additional speedup: 1-2s → 0.1-0.2s (10-20× for erosion ONLY)
+   - Total time improvement: 11-21s → 8-13s (saves only 3-8s)
+   - Requires: NVIDIA GPU + CUDA installation
+   - Conclusion: Not worth effort unless user demand
+
+3. **Performance targets achieved without GPU**
+   - Original concern: 22-30s too slow
+   - With Numba: 11-21s excellent performance
+   - Professional quality at near-current-system speeds
 
 ---
 
