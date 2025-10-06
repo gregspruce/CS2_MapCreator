@@ -85,10 +85,15 @@ class SlopeAnalyzer:
 
         Performance: O(n²) with vectorized NumPy, ~0.05-0.1s for 4096×4096
         """
+        # CRITICAL: Scale normalized heightmap (0-1) to actual meters (0-4096m)
+        # Without this, a 0.1 normalized change is treated as 0.1m instead of 410m,
+        # causing all slopes to appear nearly flat (0-5% instead of actual 50-90%)
+        heightmap_meters = heightmap * self.CS2_DEFAULT_HEIGHT_SCALE
+
         # Calculate gradients (elevation change per pixel in X and Y directions)
         # WHY pixel_size parameter: Converts from "elevation units per pixel"
         # to "meters of elevation per meter of horizontal distance" (slope)
-        gy, gx = np.gradient(heightmap, self.pixel_size)
+        gy, gx = np.gradient(heightmap_meters, self.pixel_size)
 
         # Calculate gradient magnitude (steepness regardless of direction)
         # This is the 2D slope: sqrt(slope_x² + slope_y²)
@@ -479,12 +484,13 @@ class TargetedSmoothing:
 
 
 # Convenience functions for quick usage
-def analyze_slope(heightmap: np.ndarray, export_path: Optional[Path] = None) -> Dict:
+def analyze_slope(heightmap: np.ndarray, pixel_size: float = 3.5, export_path: Optional[Path] = None) -> Dict:
     """
     Quick slope analysis with optional JSON export.
 
     Args:
         heightmap: 2D array of elevations
+        pixel_size: Meters per pixel (CS2 default: 3.5m)
         export_path: Optional path to export JSON statistics
 
     Returns:
@@ -494,7 +500,7 @@ def analyze_slope(heightmap: np.ndarray, export_path: Optional[Path] = None) -> 
         stats = analyze_slope(my_terrain, export_path=Path("terrain_stats.json"))
         print(f"Buildable: {stats['distribution']['0-5%']*100:.1f}%")
     """
-    analyzer = SlopeAnalyzer()
+    analyzer = SlopeAnalyzer(pixel_size=pixel_size)
 
     distribution = analyzer.get_slope_distribution(heightmap)
     statistics = analyzer.get_slope_statistics(heightmap)

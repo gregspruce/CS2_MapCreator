@@ -90,6 +90,8 @@ class HeightmapGUI(tk.Tk):
 
         # Display options
         self.show_legend = True  # Show elevation legend by default
+        self.show_water_overlay = False  # Water features overlay (off by default)
+        self.water_level = None  # Water level for overlay (set when coastal features added)
 
         # Debounce timer for parameter updates
         self._update_timer = None
@@ -143,6 +145,7 @@ class HeightmapGUI(tk.Tk):
         view_menu.add_separator()
         view_menu.add_checkbutton(label="Show Grid", command=self.toggle_grid)
         view_menu.add_checkbutton(label="Show Elevation Legend", command=self.toggle_legend, variable=tk.BooleanVar(value=True))
+        view_menu.add_checkbutton(label="Show Water Features", command=self.toggle_water_overlay, variable=tk.BooleanVar(value=False))
 
         # Tools menu
         tools_menu = tk.Menu(menubar, tearoff=0)
@@ -323,6 +326,28 @@ class HeightmapGUI(tk.Tk):
 
         # Convert numpy array to PIL Image
         preview_image = Image.fromarray(blended_array)
+
+        # Add water overlay if enabled and water level is set
+        if self.show_water_overlay and self.water_level is not None:
+            from PIL import ImageDraw
+            import numpy as np
+
+            # Create water mask (areas below water level)
+            water_mask = downsampled <= self.water_level
+
+            # Create semi-transparent blue overlay
+            overlay = Image.new('RGBA', preview_image.size, (0, 0, 0, 0))
+            overlay_pixels = np.array(overlay)
+
+            # Set water areas to semi-transparent blue (RGBA: 30, 144, 255, 128)
+            # Using dodger blue with 50% transparency
+            overlay_pixels[water_mask] = [30, 144, 255, 128]
+
+            overlay = Image.fromarray(overlay_pixels, 'RGBA')
+
+            # Convert preview to RGBA and composite with overlay
+            preview_rgba = preview_image.convert('RGBA')
+            preview_image = Image.alpha_composite(preview_rgba, overlay)
 
         # Update canvas
         self.preview.update_image(preview_image)
@@ -716,6 +741,17 @@ class HeightmapGUI(tk.Tk):
         status = "shown" if self.show_legend else "hidden"
         self.set_status(f"Elevation legend {status}")
 
+    def toggle_water_overlay(self):
+        """Toggle water features overlay visibility."""
+        self.show_water_overlay = not self.show_water_overlay
+
+        # Update preview to show/hide water overlay
+        if self.heightmap is not None:
+            self.update_preview()
+
+        status = "shown" if self.show_water_overlay else "hidden"
+        self.set_status(f"Water overlay {status}")
+
     def update_legend(self):
         """
         Update the elevation legend with current colormap.
@@ -975,6 +1011,13 @@ class HeightmapGUI(tk.Tk):
             progress.update(80, "Updating heightmap...")
             self.heightmap = self.generator.heightmap.copy()
 
+            # Auto-detect water level for overlay (if not already set)
+            # Set to minimum terrain height + 5% to capture lake surfaces
+            if self.water_level is None:
+                min_height = float(np.min(self.heightmap))
+                height_range = float(np.max(self.heightmap) - min_height)
+                self.water_level = min_height + (height_range * 0.05)
+
             # Step 5: Update preview
             progress.update(90, "Updating preview...")
             self.update_preview()
@@ -1059,6 +1102,9 @@ class HeightmapGUI(tk.Tk):
             # Step 4: Update heightmap
             progress.update(80, "Updating heightmap...")
             self.heightmap = self.generator.heightmap.copy()
+
+            # Store water level for overlay visualization
+            self.water_level = water_level
 
             # Step 5: Update preview
             progress.update(90, "Updating preview...")
