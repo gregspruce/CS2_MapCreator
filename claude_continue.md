@@ -1,12 +1,43 @@
 # CS2 Heightmap Generator - Session Continuation Document
 
-**Last Updated**: 2025-10-05 20:15:00 (PHASE 1 GUI INTEGRATION FIXED)
+**Last Updated**: 2025-10-06 (URGENT BUGFIX - Domain Warp Type)
 **Current Version**: 2.4.2 (unreleased)
-**Status**: Phase 1: Playable Foundation - COMPLETE + GUI INTEGRATED ✓
+**Status**: Phase 1: Playable Foundation - COMPLETE + GUI INTEGRATED + BUGFIX APPLIED ✓
 
 ---
 
 ## Quick Status
+
+### URGENT BUGFIX: Domain Warp Type Enum Conversion (2025-10-06)
+**Objective**: Fix GUI crash on terrain generation
+
+**Problem Discovered:**
+- GUI crashed with error: `'int' object has no attribute 'value'`
+- User unable to generate any terrain (application completely broken)
+- Line 570 of heightmap_gui.py passes `domain_warp_type=0` as integer
+- FastNoiseLite expects DomainWarpType enum, not integer
+- noise_generator.py missing DomainWarpType import
+
+**Fix Applied** (`src/noise_generator.py`):
+1. **Line 24**: Added `DomainWarpType` to imports
+2. **Lines 207-218**: Implemented integer-to-enum conversion with backward compatibility
+3. **Documentation**: Updated docstrings to clarify parameter accepts both integers and enums
+
+**Testing Results (All Pass)**:
+- Domain warp type 0 (OpenSimplex2): PASS
+- Domain warp type 1 (OpenSimplex2Reduced): PASS
+- Domain warp type 2 (BasicGrid): PASS
+- No domain warping (backward compatibility): PASS
+- GUI workflow simulation: PASS
+
+**Files Modified**:
+- `src/noise_generator.py` - Added import, conversion logic, updated docs
+- `CHANGELOG.md` - Documented critical bugfix
+- `BUG_FIX_domain_warp_type.md` - Detailed fix documentation
+
+**Status**: GUI FUNCTIONAL - Ready for immediate use
+
+---
 
 ### CRITICAL FIX: PHASE 1 GUI INTEGRATION (2025-10-05 20:15:00) ✓
 **Objective**: Connect Phase 1 modules to GUI (they existed but weren't being used!)

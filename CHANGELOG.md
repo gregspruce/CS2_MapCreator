@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - URGENT: Domain Warp Type Bug (2025-10-06)
+
+#### Critical Bug: GUI Crash on Terrain Generation
+- **Problem**: GUI crashed with `'int' object has no attribute 'value'` when generating terrain
+- **Root Cause**:
+  - `heightmap_gui.py` passed `domain_warp_type=0` as integer
+  - FastNoiseLite expects `DomainWarpType` enum, not integer
+  - `noise_generator.py` missing `DomainWarpType` import
+- **Impact**: GUI completely non-functional, blocking all user operations
+
+**Fix Applied** (`src/noise_generator.py`):
+1. Added `DomainWarpType` to imports (line 24)
+2. Implemented integer-to-enum conversion in `_generate_perlin_fast()` (lines 207-218)
+3. Updated docstrings to clarify parameter accepts both integers and enums
+4. Ensured backward compatibility with existing code
+
+**Testing Results**:
+- Domain warp type 0 (OpenSimplex2): PASS
+- Domain warp type 1 (OpenSimplex2Reduced): PASS
+- Domain warp type 2 (BasicGrid): PASS
+- No domain warping (backward compatibility): PASS
+- GUI workflow simulation: PASS
+
+**Files Modified**:
+- `src/noise_generator.py` - Added import, conversion logic, updated docs
+
+---
+
 ### Fixed - Phase 1 GUI Integration (2025-10-05)
 
 #### Critical Bug: Phase 1 Not Connected to GUI

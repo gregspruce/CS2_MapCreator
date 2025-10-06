@@ -21,7 +21,7 @@ from .progress_tracker import ProgressTracker
 
 # Try to import FastNoiseLite for performance boost
 try:
-    from pyfastnoiselite.pyfastnoiselite import FastNoiseLite, NoiseType, FractalType
+    from pyfastnoiselite.pyfastnoiselite import FastNoiseLite, NoiseType, FractalType, DomainWarpType
     FASTNOISE_AVAILABLE = True
     print("[NOISE_GEN] FastNoiseLite imported successfully - FAST path available")
 except ImportError as e:
@@ -78,7 +78,9 @@ class NoiseGenerator:
             domain_warp_amp: Domain warping strength (0.0 = disabled, 40-80 recommended, default: 0.0)
                 WHY: Eliminates grid-aligned patterns, creates organic curved features
                 Essential for realistic terrain that doesn't look "obviously procedural"
-            domain_warp_type: Warping algorithm (0 = OpenSimplex2, 1 = OpenSimplex2Reduced, 2 = BasicGrid)
+            domain_warp_type: Warping algorithm (integer or enum)
+                Integer: 0 = OpenSimplex2, 1 = OpenSimplex2Reduced, 2 = BasicGrid
+                Enum: DomainWarpType.DomainWarpType_OpenSimplex2, etc.
 
         Returns:
             2D numpy array normalized to 0.0-1.0
@@ -158,7 +160,9 @@ class NoiseGenerator:
         Args:
             Same as generate_perlin(), plus:
             domain_warp_amp: Domain warping strength (0.0 = disabled, 40-80 recommended, default: 0.0)
-            domain_warp_type: Warping algorithm (0 = OpenSimplex2, 1 = OpenSimplex2Reduced, 2 = BasicGrid)
+            domain_warp_type: Warping algorithm (integer or enum)
+                Integer: 0 = OpenSimplex2, 1 = OpenSimplex2Reduced, 2 = BasicGrid
+                Enum: DomainWarpType.DomainWarpType_OpenSimplex2, etc.
 
         Returns:
             2D numpy array normalized to 0.0-1.0
@@ -204,7 +208,18 @@ class NoiseGenerator:
         # "obvious procedural look" that makes terrain appear artificial.
         if domain_warp_amp > 0.0:
             noise.domain_warp_amp = domain_warp_amp
-            noise.domain_warp_type = domain_warp_type
+            # Convert integer to enum if needed for backward compatibility
+            if isinstance(domain_warp_type, int):
+                # Map integer values to DomainWarpType enum
+                # 0 = OpenSimplex2, 1 = OpenSimplex2Reduced, 2 = BasicGrid
+                warp_types = [
+                    DomainWarpType.DomainWarpType_OpenSimplex2,
+                    DomainWarpType.DomainWarpType_OpenSimplex2Reduced,
+                    DomainWarpType.DomainWarpType_BasicGrid
+                ]
+                noise.domain_warp_type = warp_types[domain_warp_type] if domain_warp_type < len(warp_types) else warp_types[0]
+            else:
+                noise.domain_warp_type = domain_warp_type
 
         if show_progress:
             print("Generating terrain (FastNoise - vectorized)...")
