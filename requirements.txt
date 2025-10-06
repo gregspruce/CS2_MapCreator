@@ -20,6 +20,11 @@ pyfastnoiselite>=0.0.6
 # Progress tracking
 tqdm>=4.65.0
 
+# Performance optimization (Stage 1: Terrain Generation v2.0)
+# Numba provides 5-8x speedup for hydraulic erosion via JIT compilation
+# Graceful fallback to pure NumPy if unavailable
+numba>=0.56.0
+
 # Optional: GUI support (uncomment if needed)
 # PyQt5>=5.15.0
 

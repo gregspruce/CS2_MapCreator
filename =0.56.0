@@ -1,0 +1,4 @@
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: numba in c:\users\gregs\appdata\roaming\python\python313\site-packages (0.61.2)
+Requirement already satisfied: llvmlite<0.45,>=0.44.0dev0 in c:\users\gregs\appdata\roaming\python\python313\site-packages (from numba) (0.44.0)
+Requirement already satisfied: numpy<2.3,>=1.24 in c:\users\gregs\appdata\roaming\python\python313\site-packages (from numba) (2.2.6)

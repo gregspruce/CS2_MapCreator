@@ -69,7 +69,10 @@ class ParameterPanel(ttk.Frame):
             'roughness': tk.DoubleVar(value=70.0),  # 0-100: smooth ↔ jagged
             'feature_size': tk.DoubleVar(value=60.0),  # 0-100: small ↔ large
             'detail_level': tk.DoubleVar(value=75.0),  # 0-100: simple ↔ intricate
-            'height_variation': tk.DoubleVar(value=85.0)  # 0-100: flat ↔ extreme
+            'height_variation': tk.DoubleVar(value=85.0),  # 0-100: flat ↔ extreme
+            # Stage 1 Hydraulic Erosion controls
+            'erosion_enabled': tk.BooleanVar(value=False),  # Whether to apply erosion
+            'erosion_quality': tk.StringVar(value='balanced')  # fast/balanced/maximum
         }
 
         # Advanced mode (technical parameters) - hidden by default
@@ -91,10 +94,13 @@ class ParameterPanel(ttk.Frame):
         # Tab 1: Basic terrain parameters
         self._create_basic_tab()
 
-        # Tab 2: Water features
+        # Tab 2: Quality & Erosion (Stage 1 features)
+        self._create_quality_tab()
+
+        # Tab 3: Water features
         self._create_water_tab()
 
-        # Tab 3: Advanced options (hidden by default, can be expanded later)
+        # Tab 4: Advanced options (hidden by default, can be expanded later)
         # self._create_advanced_tab()  # Future: technical parameters
 
         # Generate button (always visible at bottom)
@@ -163,6 +169,86 @@ class ParameterPanel(ttk.Frame):
         self._create_slider(frame, "Feature Size:", self.params['feature_size'], 0.0, 100.0, 1.0, "small ↔ large")
         self._create_slider(frame, "Detail Level:", self.params['detail_level'], 0.0, 100.0, 1.0, "simple ↔ intricate")
         self._create_slider(frame, "Height Variation:", self.params['height_variation'], 0.0, 100.0, 1.0, "flat ↔ extreme")
+
+    def _create_quality_tab(self):
+        """Create quality & erosion settings tab (Stage 1 features)."""
+        tab = ttk.Frame(self.notebook, padding=10)
+        self.notebook.add(tab, text="Quality")
+
+        # Hydraulic Erosion section
+        erosion_frame = ttk.LabelFrame(tab, text="Hydraulic Erosion (Stage 1)", padding=10)
+        erosion_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Info label
+        info = ttk.Label(
+            erosion_frame,
+            text="Realistic erosion creates dendritic drainage\npatterns and carved valleys.",
+            font=('Arial', 9),
+            justify=tk.LEFT,
+            foreground='gray30'
+        )
+        info.pack(pady=(0, 10), anchor=tk.W)
+
+        # Enable erosion checkbox
+        erosion_check = ttk.Checkbutton(
+            erosion_frame,
+            text="Enable Hydraulic Erosion",
+            variable=self.params['erosion_enabled'],
+            command=self._on_erosion_toggle
+        )
+        erosion_check.pack(anchor=tk.W, pady=(0, 10))
+
+        # Quality preset dropdown
+        quality_frame = ttk.Frame(erosion_frame)
+        quality_frame.pack(fill=tk.X, pady=(0, 5))
+
+        ttk.Label(quality_frame, text="Quality Preset:").pack(side=tk.LEFT, padx=(0, 10))
+
+        quality_combo = ttk.Combobox(
+            quality_frame,
+            textvariable=self.params['erosion_quality'],
+            values=['fast', 'balanced', 'maximum'],
+            state='readonly',
+            width=12
+        )
+        quality_combo.pack(side=tk.LEFT)
+
+        # Performance hints
+        self.erosion_hint_label = ttk.Label(
+            erosion_frame,
+            text="",
+            font=('Arial', 8),
+            foreground='gray50'
+        )
+        self.erosion_hint_label.pack(anchor=tk.W, pady=(5, 0))
+
+        # Bind quality change to update hints
+        quality_combo.bind('<<ComboboxSelected>>', lambda e: self._update_erosion_hints())
+
+        # Initial hint update
+        self._update_erosion_hints()
+
+        # JIT compilation status (if Numba available)
+        try:
+            from src.features.hydraulic_erosion import NUMBA_AVAILABLE
+            if NUMBA_AVAILABLE:
+                jit_label = ttk.Label(
+                    erosion_frame,
+                    text="✓ Numba JIT acceleration enabled",
+                    font=('Arial', 8, 'bold'),
+                    foreground='green4'
+                )
+                jit_label.pack(anchor=tk.W, pady=(10, 0))
+            else:
+                jit_label = ttk.Label(
+                    erosion_frame,
+                    text="⚠ Numba not available (slower performance)",
+                    font=('Arial', 8),
+                    foreground='orange3'
+                )
+                jit_label.pack(anchor=tk.W, pady=(10, 0))
+        except ImportError:
+            pass
 
     def _create_water_tab(self):
         """Create water features tab."""
@@ -429,6 +515,37 @@ class ParameterPanel(ttk.Frame):
         """Handle Generate button click."""
         self.gui.generate_terrain()
 
+    def _on_erosion_toggle(self):
+        """Handle erosion checkbox toggle."""
+        enabled = self.params['erosion_enabled'].get()
+        if enabled:
+            self.gui.set_status("Erosion enabled - Generation will take slightly longer")
+        else:
+            self.gui.set_status("Erosion disabled")
+        self._update_erosion_hints()
+
+    def _update_erosion_hints(self):
+        """Update erosion performance hints based on selected quality."""
+        if not hasattr(self, 'erosion_hint_label'):
+            return
+
+        quality = self.params['erosion_quality'].get()
+        enabled = self.params['erosion_enabled'].get()
+
+        if not enabled:
+            self.erosion_hint_label.config(text="Erosion disabled")
+            return
+
+        # Quality-specific hints (based on 4096×4096 resolution)
+        hints = {
+            'fast': '25 iterations (~3-4s overhead)',
+            'balanced': '50 iterations (~5-7s overhead)',
+            'maximum': '100 iterations (~12-15s overhead)'
+        }
+
+        hint_text = hints.get(quality, '')
+        self.erosion_hint_label.config(text=hint_text)
+
     def get_parameters(self) -> Dict:
         """
         Get current intuitive parameter values.
@@ -446,7 +563,10 @@ class ParameterPanel(ttk.Frame):
             'roughness': self.params['roughness'].get(),
             'feature_size': self.params['feature_size'].get(),
             'detail_level': self.params['detail_level'].get(),
-            'height_variation': self.params['height_variation'].get()
+            'height_variation': self.params['height_variation'].get(),
+            # Stage 1 erosion parameters
+            'erosion_enabled': self.params['erosion_enabled'].get(),
+            'erosion_quality': self.params['erosion_quality'].get()
         }
 
     def set_parameters(self, params: Dict):

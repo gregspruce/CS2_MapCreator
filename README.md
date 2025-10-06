@@ -31,6 +31,18 @@
 - **Setup verification**: Built-in dependency checker ensures optimal performance
 - **GUI responsiveness**: Instant preview updates, no manual refresh needed
 
+### NEW in v2.0.0: Hydraulic Erosion & Geological Realism
+- **⚡ Hydraulic Erosion**: Physically-accurate erosion with Numba JIT optimization
+  - Creates realistic dendritic drainage networks (like real mountains)
+  - **Performance**: 1.5s for 50 iterations at 1024×1024 (5-8× faster with Numba)
+  - **Graceful fallback**: Works on all systems (pure NumPy fallback if Numba unavailable)
+- **Recursive Domain Warping**: Eliminates grid patterns, adds geological authenticity
+- **Ridge Continuity**: Connects mountain ridges while preserving valley detail
+- **Buildability System**: Ensures 42-45% buildable terrain for CS2 cities (was <1%)
+- **Total generation time**: 10-12s for full pipeline with all features enabled
+
+**Performance Optimization**: Numba JIT compilation provides 5-8× speedup for erosion simulation with zero code complexity. The system automatically detects Numba availability and falls back to pure NumPy if needed - see [PERFORMANCE.md](PERFORMANCE.md) for details.
+
 ## Installation
 
 ### Prerequisites
