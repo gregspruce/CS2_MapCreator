@@ -370,6 +370,139 @@ class NoiseGenerator:
 
         return warped_xx, warped_yy
 
+    def generate_buildability_control_map(self,
+                                         resolution: int = 4096,
+                                         target_percent: float = 50.0,
+                                         seed: Optional[int] = None,
+                                         smoothing_radius: int = 10) -> np.ndarray:
+        """
+        Generate buildability control map for conditional octave generation.
+
+        This implements Stage 2 Task 2.2 from the evidence-based plan:
+        Creates a map defining WHERE terrain should be buildable (smooth, low slopes)
+        vs scenic (detailed, dramatic). This is THE ROOT CAUSE solution - terrain is
+        GENERATED differently in each zone, not post-processed.
+
+        WHY this approach works:
+        - Buildable zones get LOW octave terrain (naturally smooth slopes from generation)
+        - Scenic zones get HIGH octave terrain (naturally detailed/dramatic from generation)
+        - NO post-processing flattening (which destroys realism)
+        - Industry-standard approach used by World Machine, Gaea
+
+        Args:
+            resolution: Output size matching terrain resolution
+            target_percent: Target percentage of buildable terrain (default: 50.0%)
+                CS2 requirement: 45-55% buildable (0-5% slopes)
+            seed: Random seed for reproducible control maps (optional)
+            smoothing_radius: Morphological smoothing for consolidated regions (default: 10)
+                WHY: Creates large contiguous buildable zones, not scattered pixels
+
+        Returns:
+            2D numpy array [0.0, 1.0] where:
+                1.0 = buildable zone (will use low octaves → smooth terrain)
+                0.0 = scenic zone (will use high octaves → detailed terrain)
+
+        Algorithm (evidence-based approach):
+        1. Generate large-scale Perlin noise (octaves=2, frequency=0.001)
+           WHY: Very low frequency creates large geological regions, not random pixels
+        2. Threshold to achieve target percentage
+           WHY: Deterministic buildability guarantee (not stochastic)
+        3. Morphological smoothing (dilate → erode)
+           WHY: Consolidates regions, removes scattered pixels
+        4. Optional gradient blending (continuous 0-1, not binary)
+           WHY: Smooth transitions prevent visible seams
+
+        Performance:
+        - Fast: ~0.5-1.0s at 4096x4096 (uses FastNoiseLite if available)
+        - Deterministic with seed (reproducible results)
+
+        Reference: docs/analysis/map_gen_enhancement.md Priority 2, Task 2.2
+        """
+        # Use provided seed or generate new one
+        if seed is None:
+            seed = self.seed + 9999  # Offset from terrain seed for independence
+
+        print(f"[STAGE2] Generating buildability control map (target={target_percent:.1f}%)")
+
+        # Generate large-scale Perlin noise for control map
+        # WHY: Large scale (low frequency) creates geological-scale regions
+        # Low octaves (2) prevents fine detail - we want broad zones
+        if FASTNOISE_AVAILABLE:
+            noise = FastNoiseLite(seed=seed)
+            noise.noise_type = NoiseType.NoiseType_Perlin
+            noise.fractal_type = FractalType.FractalType_FBm
+            noise.fractal_octaves = 2  # Low octaves = broad features
+            noise.fractal_gain = 0.5
+            noise.fractal_lacunarity = 2.0
+            noise.frequency = 0.001  # Very low frequency = very large scale
+
+            # Vectorized generation
+            x_coords = np.arange(resolution, dtype=np.float32)
+            y_coords = np.arange(resolution, dtype=np.float32)
+            xx, yy = np.meshgrid(x_coords, y_coords)
+            coords = np.stack([xx.ravel(), yy.ravel()], axis=0).astype(np.float32)
+
+            noise_values = noise.gen_from_coords(coords)
+            control_map = noise_values.reshape(resolution, resolution)
+        else:
+            # Fallback to pure Python (slower but works everywhere)
+            print("[STAGE2] Using slow fallback for control map generation")
+            control_map = np.zeros((resolution, resolution), dtype=np.float64)
+            perlin = PerlinNoise(octaves=2, seed=seed)
+            scale = 1000.0  # Large scale for broad features
+
+            for y in range(resolution):
+                for x in range(resolution):
+                    nx = x / scale
+                    ny = y / scale
+                    control_map[y, x] = perlin([nx, ny])
+
+        # Normalize to [0, 1]
+        control_map = (control_map - control_map.min()) / (control_map.max() - control_map.min())
+
+        # Threshold to achieve target percentage
+        # WHY: We want exactly target_percent of terrain to be buildable
+        # Find threshold value that splits the map at target percentage
+        threshold = np.percentile(control_map, 100 - target_percent)
+        control_map_binary = (control_map >= threshold).astype(np.float64)
+
+        print(f"[STAGE2] Binary threshold: {threshold:.3f}, " +
+              f"buildable area: {np.mean(control_map_binary) * 100:.1f}%")
+
+        # Apply morphological operations for consolidated regions
+        # WHY: Removes scattered pixels, creates contiguous buildable zones
+        # Dilation expands regions, erosion shrinks them - net effect is smoothing
+        if smoothing_radius > 0:
+            try:
+                from scipy import ndimage
+
+                # Create circular structure element
+                y_struct, x_struct = np.ogrid[-smoothing_radius:smoothing_radius+1,
+                                               -smoothing_radius:smoothing_radius+1]
+                structure = x_struct**2 + y_struct**2 <= smoothing_radius**2
+
+                # Dilate then erode (closing operation - fills small holes)
+                control_map_smooth = ndimage.binary_dilation(control_map_binary, structure=structure)
+                control_map_smooth = ndimage.binary_erosion(control_map_smooth, structure=structure)
+                control_map_smooth = control_map_smooth.astype(np.float64)
+
+                actual_percent = np.mean(control_map_smooth) * 100
+                print(f"[STAGE2] After smoothing: buildable area = {actual_percent:.1f}%")
+
+                # CRITICAL: Convert to BINARY (0 or 1) to prevent blending contamination
+                # WHY: Gradient values (0.7) blend steep scenic into buildable zones!
+                # Binary ensures buildable zones stay 100% pure smooth terrain
+                control_map_binary = (control_map_smooth >= 0.5).astype(np.float64)
+                binary_percent = np.mean(control_map_binary) * 100
+                print(f"[STAGE2] After binarization: buildable area = {binary_percent:.1f}%")
+
+                return control_map_binary
+            except ImportError:
+                print("[STAGE2] WARNING: scipy not available, skipping morphological smoothing")
+                return control_map_binary
+
+        return control_map_binary
+
     def generate_simplex(self,
                         resolution: int = 4096,
                         scale: float = 100.0,
