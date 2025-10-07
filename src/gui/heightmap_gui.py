@@ -29,6 +29,7 @@ from ..noise_generator import NoiseGenerator
 from ..preview_generator import PreviewGenerator
 from ..preset_manager import PresetManager
 from ..terrain_parameter_mapper import TerrainParameterMapper
+from ..buildability_enforcer import BuildabilityEnforcer
 from .preview_canvas import PreviewCanvas
 from .parameter_panel import ParameterPanel
 from .tool_palette import ToolPalette
@@ -145,7 +146,7 @@ class HeightmapGUI(tk.Tk):
         view_menu.add_separator()
         view_menu.add_checkbutton(label="Show Grid", command=self.toggle_grid)
         view_menu.add_checkbutton(label="Show Elevation Legend", command=self.toggle_legend, variable=tk.BooleanVar(value=True))
-        view_menu.add_checkbutton(label="Show Water Features", command=self.toggle_water_overlay, variable=tk.BooleanVar(value=False))
+        # "Show Water Features" moved to Water tab in parameter panel
 
         # Tools menu
         tools_menu = tk.Menu(menubar, tearoff=0)
@@ -576,7 +577,7 @@ class HeightmapGUI(tk.Tk):
         progress = ProgressDialog(self, "Generating Terrain")
 
         try:
-            # Step 1: Generate base noise
+            # Step 1: Generate base noise with optional buildability constraints
             progress.update(0, "Generating base noise...")
             print(f"\n[GUI] Generating terrain with parameters:")
             print(f"  Scale: {technical_params['scale']}")
@@ -584,63 +585,236 @@ class HeightmapGUI(tk.Tk):
             print(f"  Persistence: {technical_params['persistence']}")
             print(f"  Lacunarity: {technical_params['lacunarity']}")
 
-            heightmap = self.noise_gen.generate_perlin(
-                resolution=self.resolution,
-                scale=technical_params['scale'],
-                octaves=technical_params['octaves'],
-                persistence=technical_params['persistence'],
-                lacunarity=technical_params['lacunarity'],
-                show_progress=True,  # Enable terminal output for visibility
-                domain_warp_amp=60.0,  # Phase 1.1: Domain warping eliminates grid patterns
-                domain_warp_type=0,  # 0=OpenSimplex2 (recommended)
-                # Stage 1 Quick Win 1: Recursive domain warping for geological authenticity
-                recursive_warp=True,  # Inigo Quilez 2-stage recursive warping (17.3% improvement)
-                recursive_warp_strength=4.0  # Compound distortion strength (3.0-5.0 optimal)
-            )
+            # Stage 2 Task 2.2: Conditional octave generation for buildability
+            # WHY: This is the ROOT CAUSE solution - terrain is GENERATED buildable,
+            # not post-processed. Buildable zones get LOW octaves (smooth), scenic zones
+            # get HIGH octaves (detailed). Industry-standard approach (World Machine, Gaea).
+            buildability_enabled = intuitive_params.get('buildability_enabled', False)
+            buildability_target = intuitive_params.get('buildability_target', 50.0)
 
-            # Step 2: Apply height variation
-            progress.update(15, "Applying height variation...")
-            heightmap = TerrainParameterMapper.apply_height_variation(
-                heightmap,
-                technical_params['height_multiplier']
-            )
+            # Get tunable octave/recursive parameters (defaults match old hardcoded values)
+            buildable_octaves = intuitive_params.get('buildable_octaves', 2)
+            moderate_octaves = intuitive_params.get('moderate_octaves', 5)
+            scenic_octaves = intuitive_params.get('scenic_octaves', 7)
+            moderate_recursive = intuitive_params.get('moderate_recursive', 0.5)
+            scenic_recursive = intuitive_params.get('scenic_recursive', 1.0)
 
-            # Step 3: Create coherent terrain structure (v2.4.1 - Optimized 3.43x faster!)
-            progress.update(25, "Creating mountain ranges...")
-            from ..coherent_terrain_generator_optimized import CoherentTerrainGenerator
-            from ..terrain_realism import TerrainRealism
-            terrain_type = intuitive_params.get('preset', 'mountains')
+            # DEBUG: Log tunable parameters
+            print(f"[DEBUG] Tunable parameters: buildable_oct={buildable_octaves}, moderate_oct={moderate_octaves}, scenic_oct={scenic_octaves}, moderate_rec={moderate_recursive}, scenic_rec={scenic_recursive}")
 
-            # Get erosion settings (Stage 1 feature)
-            erosion_enabled = intuitive_params.get('erosion_enabled', False)
-            erosion_quality = intuitive_params.get('erosion_quality', 'balanced')
+            if buildability_enabled:
+                print(f"[STAGE2] Buildability constraint ENABLED (target={buildability_target:.1f}%)")
+                print("[STAGE2] Using conditional octave generation (not post-processing)")
 
-            # Map quality presets to iteration counts
-            erosion_iterations_map = {
-                'fast': 25,
-                'balanced': 50,
-                'maximum': 100
-            }
-            erosion_iterations = erosion_iterations_map.get(erosion_quality, 50)
+                # Generate GRADIENT control map (continuous 0.0-1.0, not binary 0 or 1)
+                # WHY: Gradient creates smooth transitions from buildable → moderate → scenic
+                # This avoids "oscillating wildly" between overly smooth and overly jagged
+                progress.update(0, "Generating gradient control map...")
+                control_target_adjusted = min(70.0, buildability_target * 1.4)  # 70% for 50% final
+                print(f"[STAGE2] Gradient control map (target={control_target_adjusted:.0f}%)")
+                control_map_raw = self.noise_gen.generate_buildability_control_map(
+                    resolution=self.resolution,
+                    target_percent=control_target_adjusted,
+                    seed=self.noise_gen.seed,
+                    smoothing_radius=max(10, self.resolution // 100)  # More smoothing for gradients
+                )
+                # Keep as gradient (DON'T binarize) - normalize to 0.0-1.0
+                control_map = (control_map_raw - control_map_raw.min()) / (control_map_raw.max() - control_map_raw.min())
+                print(f"[STAGE2] Gradient: min={control_map.min():.2f}, max={control_map.max():.2f}, mean={control_map.mean():.2f}")
 
-            heightmap = CoherentTerrainGenerator.make_coherent(
-                heightmap,
-                terrain_type=terrain_type,
-                apply_erosion=erosion_enabled,
-                erosion_iterations=erosion_iterations
-            )
+                # Generate 3 layers for gradient blending (addresses "oscillating" problem)
+                # Layer 1: Buildable (octaves=2, no warp) for control_map=1.0 areas
+                # Layer 2: Moderate (octaves=5, gentle recursive) for control_map=0.5 areas
+                # Layer 3: Scenic (octaves=7, moderate recursive) for control_map=0.0 areas
+                buildable_scale = 500 * (self.resolution / 512)
 
-            # Step 4: Add realism polish (erosion, detail)
-            progress.update(60, "Adding terrain realism...")
-            heightmap = TerrainRealism.make_realistic(
-                heightmap,
-                terrain_type=terrain_type,
-                enable_warping=True,   # ENABLE for natural curved features
-                enable_ridges=True,    # Sharpen peaks
-                enable_valleys=True,   # Carve valleys
-                enable_plateaus=(terrain_type in ['highlands', 'mesas']),
-                enable_erosion=True    # Add weathering
-            )
+                progress.update(5, "Generating buildable layer...")
+                print(f"[STAGE2] Layer 1: octaves={buildable_octaves}, no warp (fully buildable)")
+                layer_buildable = self.noise_gen.generate_perlin(
+                    resolution=self.resolution,
+                    scale=buildable_scale,
+                    octaves=buildable_octaves,
+                    persistence=0.3,
+                    lacunarity=technical_params['lacunarity'],
+                    show_progress=True,
+                    domain_warp_amp=0.0,
+                    recursive_warp=False
+                )
+
+                progress.update(20, "Generating moderate layer...")
+                print(f"[STAGE2] Layer 2: octaves={moderate_octaves}, recursive={moderate_recursive} (moderately scenic)")
+                layer_moderate = self.noise_gen.generate_perlin(
+                    resolution=self.resolution,
+                    scale=200,  # Medium scale
+                    octaves=moderate_octaves,  # User-tunable
+                    persistence=0.4,
+                    lacunarity=technical_params['lacunarity'],
+                    show_progress=True,
+                    domain_warp_amp=60.0,
+                    recursive_warp=True,
+                    recursive_warp_strength=moderate_recursive  # User-tunable
+                )
+
+                progress.update(40, "Generating scenic layer...")
+                print(f"[STAGE2] Layer 3: octaves={scenic_octaves}, recursive={scenic_recursive} (highly scenic)")
+                layer_scenic = self.noise_gen.generate_perlin(
+                    resolution=self.resolution,
+                    scale=100,  # Small scale for detail
+                    octaves=scenic_octaves,  # User-tunable
+                    persistence=0.5,
+                    lacunarity=technical_params['lacunarity'],
+                    show_progress=True,
+                    domain_warp_amp=60.0,
+                    recursive_warp=True,
+                    recursive_warp_strength=scenic_recursive  # User-tunable
+                )
+
+                # Apply height variation to all layers
+                progress.update(55, "Applying height variation...")
+                layer_buildable = TerrainParameterMapper.apply_height_variation(
+                    layer_buildable, technical_params['height_multiplier'])
+                layer_moderate = TerrainParameterMapper.apply_height_variation(
+                    layer_moderate, technical_params['height_multiplier'])
+                layer_scenic = TerrainParameterMapper.apply_height_variation(
+                    layer_scenic, technical_params['height_multiplier'])
+
+                # Blend layers using quadratic interpolation for smooth transitions
+                # control=1.0 → 100% buildable
+                # control=0.5 → 50% buildable, 25% moderate, 25% scenic
+                # control=0.0 → 100% scenic
+                progress.update(65, "Blending layers with gradient control...")
+                print(f"[STAGE2] Quadratic blending for smooth transitions")
+                control_squared = control_map ** 2
+                control_inv = 1.0 - control_map
+                control_inv_squared = control_inv ** 2
+
+                heightmap = (layer_buildable * control_squared +
+                            layer_moderate * 2 * control_map * control_inv +
+                            layer_scenic * control_inv_squared)
+                print(f"[STAGE2] Gradient blending complete")
+
+                # Priority 6: Post-processing buildability enforcement
+                # With gradient blending, we start at ~25% buildable, so use moderate smoothing
+                # (vs aggressive sigma=128 needed for binary approach that started at 5%)
+                progress.update(70, "Enforcing buildability constraint...")
+                print(f"[PRIORITY6] Applying moderate buildability enforcement...")
+                # Use sigma=64 (moderate) since gradient approach provides better starting point
+                sigma_scaled = 64 * (self.resolution / 1024)
+                # Use gradient control map as mask (areas >0.5 are "buildable intent")
+                control_mask = (control_map >= 0.5).astype(np.float64)
+                heightmap, enforcement_stats = BuildabilityEnforcer.enforce_buildability_constraint(
+                    heightmap=heightmap,
+                    buildable_mask=control_mask,
+                    target_pct=buildability_target,
+                    max_iterations=20,  # Fewer iterations needed
+                    sigma=sigma_scaled,  # Moderate smoothing radius
+                    tolerance=5.0,  # ±5% acceptable deviation
+                    map_size_meters=14336.0,
+                    verbose=True
+                )
+                print(f"[PRIORITY6] Enforcement complete: {enforcement_stats['initial_pct']:.1f}% → "
+                      f"{enforcement_stats['final_pct']:.1f}% ({enforcement_stats['iterations']} iterations)")
+
+                # Apply erosion if enabled (after buildability enforcement)
+                erosion_enabled = intuitive_params.get('erosion_enabled', False)
+                if erosion_enabled:
+                    progress.update(75, "Applying hydraulic erosion...")
+                    from ..features.hydraulic_erosion import HydraulicErosionSimulator
+                    erosion_quality = intuitive_params.get('erosion_quality', 'balanced')
+                    erosion_iterations_map = {'fast': 25, 'balanced': 50, 'maximum': 100}
+                    erosion_iterations = erosion_iterations_map.get(erosion_quality, 50)
+                    print(f"[EROSION] Applying {erosion_quality} erosion ({erosion_iterations} iterations)")
+
+                    # Normalize heightmap before erosion (ensure 0.0-1.0 range)
+                    heightmap_min = np.min(heightmap)
+                    heightmap_max = np.max(heightmap)
+                    if heightmap_max > heightmap_min:
+                        heightmap = (heightmap - heightmap_min) / (heightmap_max - heightmap_min)
+                    print(f"[EROSION] Normalized: [{heightmap_min:.3f}, {heightmap_max:.3f}] -> [0.0, 1.0]")
+
+                    # Get user-configured erosion parameters
+                    erosion_rate = intuitive_params.get('erosion_rate', 0.2)
+                    deposition_rate = intuitive_params.get('deposition_rate', 0.08)
+                    evaporation_rate = intuitive_params.get('evaporation_rate', 0.015)
+                    sediment_capacity = intuitive_params.get('sediment_capacity', 3.0)
+                    print(f"[EROSION] Parameters: rate={erosion_rate:.2f}, deposition={deposition_rate:.3f}, evaporation={evaporation_rate:.3f}, capacity={sediment_capacity:.1f}")
+
+                    erosion_simulator = HydraulicErosionSimulator(
+                        erosion_rate=erosion_rate,
+                        deposition_rate=deposition_rate,
+                        evaporation_rate=evaporation_rate,
+                        sediment_capacity=sediment_capacity,
+                        min_slope=0.01
+                    )
+
+                    heightmap = erosion_simulator.simulate_erosion(
+                        heightmap,
+                        iterations=erosion_iterations,
+                        rain_amount=0.01,
+                        show_progress=True
+                    )
+
+                    # Sanitize heightmap after erosion (remove NaN/inf, ensure valid range)
+                    print(f"[EROSION] Sanitizing heightmap...")
+                    heightmap = np.nan_to_num(heightmap, nan=0.0, posinf=1.0, neginf=0.0)
+                    heightmap = np.clip(heightmap, 0.0, 1.0)
+                    print(f"[EROSION] Heightmap stats: min={np.min(heightmap):.3f}, max={np.max(heightmap):.3f}, mean={np.mean(heightmap):.3f}")
+                    print(f"[EROSION] Complete - dendritic drainage patterns created")
+
+            else:
+                # Standard generation without buildability constraints
+                heightmap = self.noise_gen.generate_perlin(
+                    resolution=self.resolution,
+                    scale=technical_params['scale'],
+                    octaves=technical_params['octaves'],
+                    persistence=technical_params['persistence'],
+                    lacunarity=technical_params['lacunarity'],
+                    show_progress=True,  # Enable terminal output for visibility
+                    domain_warp_amp=60.0,  # Phase 1.1: Domain warping eliminates grid patterns
+                    domain_warp_type=0,  # 0=OpenSimplex2 (recommended)
+                    # Stage 1 Quick Win 1: Recursive domain warping for geological authenticity
+                    recursive_warp=True,  # Inigo Quilez 2-stage recursive warping (17.3% improvement)
+                    recursive_warp_strength=4.0  # Compound distortion strength (3.0-5.0 optimal)
+                )
+
+                # Apply full pipeline to standard generation
+                # Step 2: Apply height variation
+                progress.update(15, "Applying height variation...")
+                heightmap = TerrainParameterMapper.apply_height_variation(
+                    heightmap,
+                    technical_params['height_multiplier']
+                )
+
+                # Step 3: Create coherent terrain structure
+                progress.update(25, "Creating mountain ranges...")
+                from ..coherent_terrain_generator_optimized import CoherentTerrainGenerator
+                from ..terrain_realism import TerrainRealism
+                terrain_type = intuitive_params.get('preset', 'mountains')
+
+                # Get erosion settings
+                erosion_enabled = intuitive_params.get('erosion_enabled', False)
+                erosion_quality = intuitive_params.get('erosion_quality', 'balanced')
+                erosion_iterations_map = {'fast': 25, 'balanced': 50, 'maximum': 100}
+                erosion_iterations = erosion_iterations_map.get(erosion_quality, 50)
+
+                heightmap = CoherentTerrainGenerator.make_coherent(
+                    heightmap,
+                    terrain_type=terrain_type,
+                    apply_erosion=erosion_enabled,
+                    erosion_iterations=erosion_iterations
+                )
+
+                # Step 4: Add realism polish
+                progress.update(60, "Adding terrain realism...")
+                heightmap = TerrainRealism.make_realistic(
+                    heightmap,
+                    terrain_type=terrain_type,
+                    enable_warping=True,
+                    enable_ridges=True,
+                    enable_valleys=True,
+                    enable_plateaus=(terrain_type in ['highlands', 'mesas']),
+                    enable_erosion=True
+                )
 
             # Step 5: Update preview
             progress.update(70, "Generating preview...")
@@ -1248,22 +1422,11 @@ class HeightmapGUI(tk.Tk):
                 elevation_range=elevation_range
             )
 
-            self.set_status("3D preview generated - Use mouse to rotate and zoom")
+            # Status bar shows usage info instead of popup (prevents focus stealing)
+            self.set_status("3D preview: Left-drag=rotate, Right-drag=pan, Scroll=zoom")
 
-            # Show usage tips
-            messagebox.showinfo(
-                "3D Preview Controls",
-                "3D Preview Generated!\n\n"
-                "Mouse Controls:\n"
-                "• Left-click + drag: Rotate view\n"
-                "• Right-click + drag: Pan view\n"
-                "• Scroll wheel: Zoom in/out\n\n"
-                "Tips:\n"
-                "• Terrain has 2× vertical exaggeration for better visibility\n"
-                "• Colors show elevation (blue=low, green=mid, brown=high, white=peaks)\n"
-                "• Close window when done to free resources\n\n"
-                "Note: 3D preview shows downsampled terrain (256×256) for performance."
-            )
+            # REMOVED: messagebox.showinfo() that was stealing focus
+            # Usage info now shown in status bar instead
 
         except Exception as e:
             messagebox.showerror("3D Preview Error", f"Failed to generate 3D preview:\n{e}")

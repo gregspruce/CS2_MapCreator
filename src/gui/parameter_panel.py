@@ -71,8 +71,22 @@ class ParameterPanel(ttk.Frame):
             'detail_level': tk.DoubleVar(value=75.0),  # 0-100: simple ↔ intricate
             'height_variation': tk.DoubleVar(value=85.0),  # 0-100: flat ↔ extreme
             # Stage 1 Hydraulic Erosion controls
-            'erosion_enabled': tk.BooleanVar(value=False),  # Whether to apply erosion
-            'erosion_quality': tk.StringVar(value='balanced')  # fast/balanced/maximum
+            'erosion_enabled': tk.BooleanVar(value=True),  # DEFAULT: enabled for realistic terrain
+            'erosion_quality': tk.StringVar(value='maximum'),  # fast/balanced/maximum - DEFAULT: maximum
+            # Erosion physical parameters (tunable)
+            'erosion_rate': tk.DoubleVar(value=0.2),           # How aggressively water erodes (0.1-0.5)
+            'deposition_rate': tk.DoubleVar(value=0.08),       # How quickly sediment deposits (0.01-0.15)
+            'evaporation_rate': tk.DoubleVar(value=0.015),     # Water loss rate (0.005-0.03)
+            'sediment_capacity': tk.DoubleVar(value=3.0),      # Max sediment per water unit (1.0-6.0)
+            # Stage 2 Buildability Constraints controls (DEFAULTS: enabled, 40%)
+            'buildability_enabled': tk.BooleanVar(value=True),  # DEFAULT: enabled
+            'buildability_target': tk.DoubleVar(value=40.0),  # DEFAULT: 40% (was 50%)
+            # Gradient blending layer parameters (tunable octaves and recursive strength)
+            'buildable_octaves': tk.IntVar(value=2),  # Buildable layer octaves (1-4)
+            'moderate_octaves': tk.IntVar(value=5),  # Moderate layer octaves (3-6)
+            'scenic_octaves': tk.IntVar(value=7),  # Scenic layer octaves (5-9)
+            'moderate_recursive': tk.DoubleVar(value=0.5),  # Moderate recursive strength (0.0-2.0)
+            'scenic_recursive': tk.DoubleVar(value=1.0)  # Scenic recursive strength (0.0-3.0)
         }
 
         # Advanced mode (technical parameters) - hidden by default
@@ -250,6 +264,135 @@ class ParameterPanel(ttk.Frame):
         except ImportError:
             pass
 
+        # Advanced erosion parameters (collapsible)
+        erosion_advanced_frame = ttk.LabelFrame(erosion_frame, text="Advanced Erosion Parameters", padding=5)
+        erosion_advanced_frame.pack(fill=tk.X, pady=(10, 0))
+
+        # Erosion Rate
+        self._create_slider_control(
+            erosion_advanced_frame, "Erosion Rate:", self.params['erosion_rate'],
+            0.1, 0.5, "{:.2f}", "Carving strength (0.2=gentle, 0.3=standard, 0.4=aggressive)"
+        )
+
+        # Deposition Rate
+        self._create_slider_control(
+            erosion_advanced_frame, "Deposition Rate:", self.params['deposition_rate'],
+            0.01, 0.15, "{:.3f}", "Sediment smoothing (0.05=minimal, 0.08=balanced, 0.12=heavy)"
+        )
+
+        # Evaporation Rate
+        self._create_slider_control(
+            erosion_advanced_frame, "Evaporation Rate:", self.params['evaporation_rate'],
+            0.005, 0.03, "{:.3f}", "Water loss control (0.01=low, 0.015=moderate, 0.025=high)"
+        )
+
+        # Sediment Capacity
+        self._create_slider_control(
+            erosion_advanced_frame, "Sediment Capacity:", self.params['sediment_capacity'],
+            1.0, 6.0, "{:.1f}", "Max sediment transport (2.0=limited, 3.0=balanced, 5.0=heavy)"
+        )
+
+        # Explanation
+        explanation_erosion = ttk.Label(
+            erosion_advanced_frame,
+            text="Fine-tune erosion behavior. Lower values = gentler, higher = more dramatic.\nDefaults are calibrated for buildable terrain.",
+            font=('Arial', 7),
+            foreground='gray50',
+            justify=tk.LEFT
+        )
+        explanation_erosion.pack(anchor=tk.W, pady=(5, 0))
+
+        # Buildability Constraints section (Stage 2 Task 2.2)
+        buildability_frame = ttk.LabelFrame(tab, text="Buildability Constraints (Stage 2)", padding=10)
+        buildability_frame.pack(fill=tk.X, pady=(10, 0))
+
+        # Info label
+        info_build = ttk.Label(
+            buildability_frame,
+            text="Generates terrain with naturally smooth buildable zones.\nNOT post-processing - terrain is GENERATED buildable.",
+            font=('Arial', 9),
+            justify=tk.LEFT,
+            foreground='gray30'
+        )
+        info_build.pack(pady=(0, 10), anchor=tk.W)
+
+        # Enable buildability checkbox
+        buildability_check = ttk.Checkbutton(
+            buildability_frame,
+            text="Enable Buildability Constraints",
+            variable=self.params['buildability_enabled']
+        )
+        buildability_check.pack(anchor=tk.W, pady=(0, 10))
+
+        # Target percentage slider
+        target_frame = ttk.Frame(buildability_frame)
+        target_frame.pack(fill=tk.X, pady=(0, 5))
+
+        ttk.Label(target_frame, text="Target Buildable %:").pack(side=tk.LEFT, padx=(0, 10))
+
+        target_slider = ttk.Scale(
+            target_frame,
+            from_=30.0,
+            to=70.0,
+            variable=self.params['buildability_target'],
+            orient=tk.HORIZONTAL
+        )
+        target_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+
+        target_value_label = ttk.Label(target_frame, text="50%", width=5)
+        target_value_label.pack(side=tk.LEFT)
+
+        # Update label when slider changes
+        def update_target_label(*args):
+            value = self.params['buildability_target'].get()
+            target_value_label.config(text=f"{value:.0f}%")
+
+        self.params['buildability_target'].trace_add('write', update_target_label)
+
+        # Advanced tuning section (collapsible)
+        advanced_frame = ttk.LabelFrame(buildability_frame, text="Advanced Tuning (Octaves & Recursive Warp)", padding=5)
+        advanced_frame.pack(fill=tk.X, pady=(10, 0))
+
+        # Buildable layer octaves
+        self._create_slider_control(
+            advanced_frame, "Buildable Octaves:", self.params['buildable_octaves'],
+            1, 4, "{:.0f}", "Lower = smoother (default: 2)"
+        )
+
+        # Moderate layer octaves
+        self._create_slider_control(
+            advanced_frame, "Moderate Octaves:", self.params['moderate_octaves'],
+            3, 6, "{:.0f}", "Balance detail/buildability (default: 5)"
+        )
+
+        # Scenic layer octaves
+        self._create_slider_control(
+            advanced_frame, "Scenic Octaves:", self.params['scenic_octaves'],
+            5, 9, "{:.0f}", "Higher = more detail (default: 7)"
+        )
+
+        # Moderate recursive strength
+        self._create_slider_control(
+            advanced_frame, "Moderate Recursive:", self.params['moderate_recursive'],
+            0.0, 2.0, "{:.1f}", "Gentle realism (default: 0.5)"
+        )
+
+        # Scenic recursive strength
+        self._create_slider_control(
+            advanced_frame, "Scenic Recursive:", self.params['scenic_recursive'],
+            0.0, 3.0, "{:.1f}", "Strong realism (default: 1.0)"
+        )
+
+        # Explanation of what this does
+        explanation = ttk.Label(
+            buildability_frame,
+            text="Uses gradient blending (3 layers) for smooth transitions.\nTune octaves/recursive to balance realism vs buildability.",
+            font=('Arial', 8),
+            foreground='gray50',
+            justify=tk.LEFT
+        )
+        explanation.pack(anchor=tk.W, pady=(5, 0))
+
     def _create_water_tab(self):
         """Create water features tab."""
         tab = ttk.Frame(self.notebook, padding=10)
@@ -291,6 +434,14 @@ class ParameterPanel(ttk.Frame):
 
         # Separator
         ttk.Separator(tab, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=15)
+
+        # Show Water Features toggle
+        water_toggle = ttk.Checkbutton(
+            tab,
+            text="Show Water Features Overlay",
+            command=self.gui.toggle_water_overlay
+        )
+        water_toggle.pack(anchor=tk.W, pady=5)
 
         # 3D Preview button
         preview_btn = ttk.Button(
@@ -469,6 +620,49 @@ class ParameterPanel(ttk.Frame):
             )
             desc_label.pack()
 
+    def _create_slider_control(self, parent, label_text: str, variable, from_val: float, to_val: float, format_str: str, tooltip_text: str):
+        """
+        Create a compact slider control with label, slider, value display, and tooltip.
+
+        Args:
+            parent: Parent widget
+            label_text: Label text (e.g., "Buildable Octaves:")
+            variable: Tkinter variable (IntVar or DoubleVar)
+            from_val: Minimum value
+            to_val: Maximum value
+            format_str: Format string for value display (e.g., "{:.0f}" for integers, "{:.1f}" for floats)
+            tooltip_text: Help text displayed below the slider
+
+        Why this pattern:
+        - Compact layout for advanced controls
+        - Label, slider, and value on same line
+        - Tooltip provides context without cluttering UI
+        - Value updates in real-time
+        """
+        # Main control frame (label, slider, value on one line)
+        control_frame = ttk.Frame(parent)
+        control_frame.pack(fill=tk.X, pady=2)
+
+        # Label on the left
+        ttk.Label(control_frame, text=label_text, width=20).pack(side=tk.LEFT, padx=(0, 10))
+
+        # Slider in the middle (expands to fill)
+        slider = ttk.Scale(control_frame, from_=from_val, to=to_val, variable=variable, orient=tk.HORIZONTAL)
+        slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+
+        # Value label on the right
+        value_label = ttk.Label(control_frame, text=format_str.format(variable.get()), width=5)
+        value_label.pack(side=tk.LEFT)
+
+        # Update label when slider changes
+        def update_label(*args):
+            value_label.config(text=format_str.format(variable.get()))
+        variable.trace_add('write', update_label)
+
+        # Tooltip below (small gray text)
+        tooltip = ttk.Label(parent, text=tooltip_text, font=('Arial', 7), foreground='gray50')
+        tooltip.pack(anchor=tk.W, pady=(0, 5))
+
     def _on_preset_combo_change(self, combo):
         """Handle preset combobox selection change."""
         selected_label = combo.get()
@@ -566,7 +760,20 @@ class ParameterPanel(ttk.Frame):
             'height_variation': self.params['height_variation'].get(),
             # Stage 1 erosion parameters
             'erosion_enabled': self.params['erosion_enabled'].get(),
-            'erosion_quality': self.params['erosion_quality'].get()
+            'erosion_quality': self.params['erosion_quality'].get(),
+            'erosion_rate': self.params['erosion_rate'].get(),
+            'deposition_rate': self.params['deposition_rate'].get(),
+            'evaporation_rate': self.params['evaporation_rate'].get(),
+            'sediment_capacity': self.params['sediment_capacity'].get(),
+            # Stage 2 buildability parameters
+            'buildability_enabled': self.params['buildability_enabled'].get(),
+            'buildability_target': self.params['buildability_target'].get(),
+            # Gradient blending tunable parameters (Advanced Tuning)
+            'buildable_octaves': self.params['buildable_octaves'].get(),
+            'moderate_octaves': self.params['moderate_octaves'].get(),
+            'scenic_octaves': self.params['scenic_octaves'].get(),
+            'moderate_recursive': self.params['moderate_recursive'].get(),
+            'scenic_recursive': self.params['scenic_recursive'].get()
         }
 
     def set_parameters(self, params: Dict):
