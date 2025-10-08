@@ -17,7 +17,8 @@ WHY these tests matter:
 import numpy as np
 import time
 from scipy import ndimage
-from src.coherent_terrain_generator import CoherentTerrainGenerator
+# Using legacy version for this benchmark test (slower, but baseline comparison)
+from src.coherent_terrain_generator_legacy import CoherentTerrainGenerator
 
 
 def measure_ridge_connectivity(heightmap: np.ndarray, threshold: float = 0.7) -> float:

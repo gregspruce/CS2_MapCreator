@@ -1,6 +1,6 @@
 # Cities Skylines 2 Heightmap Generator
 
-**Version 2.1.1** - A professional Python tool for generating custom heightmaps for Cities Skylines 2. Features blazing-fast terrain generation (<1s), fully functional water features, and quantitative elevation analysis.
+**Version 2.4.2 (unreleased)** - A professional Python tool for generating custom heightmaps for Cities Skylines 2. Features evidence-based geological simulation, hydraulic erosion, gradient-based buildability constraints, and advanced user controls.
 
 ## Features
 
@@ -24,22 +24,44 @@
 - **Preset Management**: Save/load/share custom terrain configurations
 - **Worldmap Support**: Extended terrain beyond playable area
 
-### Performance (v2.1.1)
-- **4096x4096 generation**: 0.85-0.94 seconds (was 60-120s in v2.0)
-- **Throughput**: ~19 million pixels/second
+### Performance (v2.4.2)
+- **Base noise generation**: 5-10 seconds (4096×4096 Perlin/Simplex with domain warping)
+- **Full professional pipeline**: 60-75 seconds (with erosion, buildability, all features)
+- **Fast mode**: 18-26 seconds (skip erosion for quick iteration)
+- **Erosion only**: 40-45 seconds (100 iterations, Numba JIT optimized - 5-8× faster)
+- **Coherent structure**: 10-12 seconds (FFT-optimized, 9-14× faster than v2.0)
+- **Throughput**: ~19 million pixels/second (noise generation)
 - **Scaling**: Near-perfect linear scaling with resolution
 - **Setup verification**: Built-in dependency checker ensures optimal performance
 - **GUI responsiveness**: Instant preview updates, no manual refresh needed
 
-### NEW in v2.0.0: Hydraulic Erosion & Geological Realism
-- **⚡ Hydraulic Erosion**: Physically-accurate erosion with Numba JIT optimization
+### NEW in v2.0.0: Hydraulic Erosion & Geological Realism (Stage 1 ✓)
+- **⚡ Hydraulic Erosion**: Physically-accurate pipe model with Numba JIT optimization
   - Creates realistic dendritic drainage networks (like real mountains)
-  - **Performance**: 1.5s for 50 iterations at 1024×1024 (5-8× faster with Numba)
+  - **Performance**: 1.47s for 50 iterations at 1024×1024 (5-8× faster with Numba)
+  - **Performance**: 40-45s for 100 iterations at 4096×4096 (default quality)
   - **Graceful fallback**: Works on all systems (pure NumPy fallback if Numba unavailable)
 - **Recursive Domain Warping**: Eliminates grid patterns, adds geological authenticity
 - **Ridge Continuity**: Connects mountain ridges while preserving valley detail
-- **Buildability System**: Ensures 42-45% buildable terrain for CS2 cities (was <1%)
-- **Total generation time**: 10-12s for full pipeline with all features enabled
+
+### NEW in v2.4.2: Gradient-Based Buildability & Advanced Controls (Stage 2 ✓)
+- **Gradient Control Map**: Continuous terrain blending (buildable/moderate/scenic zones)
+  - Creates smooth visual transitions (no harsh seams)
+  - Achieves 40-50% buildable terrain for CS2 cities (default 40%)
+  - Root cause solution (conditional octave generation, not post-processing)
+  - Industry-standard approach (World Machine, Gaea use gradient blending)
+- **Advanced Tuning Controls**: 5 user-configurable parameters
+  - Buildable Octaves (1-4, default: 2) - Lower = smoother
+  - Moderate Octaves (3-6, default: 5) - Balance detail/buildability
+  - Scenic Octaves (5-9, default: 7) - Higher = more detail
+  - Moderate Recursive (0.0-2.0, default: 0.5) - Gentle realism
+  - Scenic Recursive (0.0-3.0, default: 1.0) - Strong realism
+- **Erosion Parameter Controls**: 4 physics-based parameters
+  - Erosion Rate (0.1-0.5, default: 0.2) - Carving strength
+  - Deposition Rate (0.01-0.15, default: 0.08) - Sediment smoothing
+  - Evaporation Rate (0.005-0.03, default: 0.015) - Water loss control
+  - Sediment Capacity (1.0-6.0, default: 3.0) - Max sediment transport
+- **Professional defaults**: Erosion enabled (100 iterations), 40% buildability, optimized for playability
 
 **Performance Optimization**: Numba JIT compilation provides 5-8× speedup for erosion simulation with zero code complexity. The system automatically detects Numba availability and falls back to pure NumPy if needed - see [PERFORMANCE.md](PERFORMANCE.md) for details.
 
@@ -70,7 +92,7 @@ This will:
 
 **After setup, verify everything works:**
 ```bash
-python verify_setup.py
+python tests/verify_setup.py
 ```
 
 This checks that all critical dependencies are installed and performance is optimal.
@@ -319,19 +341,50 @@ terrain = noise_gen.generate_perlin(
 ```
 CS2_Map/
 ├── src/
-│   ├── heightmap_generator.py    # Core heightmap functionality
-│   ├── noise_generator.py        # Procedural terrain generation
-│   ├── worldmap_generator.py     # Extended worldmap creation
-│   └── cs2_exporter.py           # CS2 integration and export
-├── examples/
-│   ├── 01_basic_usage.py         # Getting started
-│   ├── 02_preset_terrains.py     # Using presets
-│   ├── 03_with_worldmap.py       # Heightmap + worldmap
-│   └── 04_custom_terrain.py      # Custom design
-├── output/                        # Generated heightmaps
-├── requirements.txt               # Python dependencies
-├── CLAUDE.md                      # Development instructions
-└── README.md                      # This file
+│   ├── features/                      # Water features, erosion
+│   │   ├── hydraulic_erosion.py      # Pipe model erosion (Numba JIT)
+│   │   ├── river_generator.py        # D8 flow, river networks
+│   │   ├── water_body_generator.py   # Lake detection
+│   │   ├── coastal_generator.py      # Beach/cliff generation
+│   │   ├── terrain_editor.py         # Manual editing
+│   │   └── performance_utils.py      # Downsampling utilities
+│   ├── gui/                           # GUI components
+│   │   ├── heightmap_gui.py          # Main Tkinter application
+│   │   ├── parameter_panel.py        # Control sliders
+│   │   ├── preview_canvas.py         # Live preview
+│   │   ├── tool_palette.py           # Manual editing tools
+│   │   └── progress_dialog.py        # Progress bar
+│   ├── analysis/                      # Terrain analysis
+│   │   └── terrain_analyzer.py       # Slope/aspect/statistics
+│   ├── heightmap_generator.py         # Core heightmap container
+│   ├── noise_generator.py             # Perlin/Simplex generation
+│   ├── coherent_terrain_generator_optimized.py  # FFT-optimized (9-14x faster)
+│   ├── buildability_enforcer.py       # Slope smoothing
+│   ├── terrain_realism.py             # Domain warping, ridges
+│   ├── terrain_parameter_mapper.py    # Parameter conversion
+│   ├── worldmap_generator.py          # Extended worldmap
+│   └── cs2_exporter.py                # CS2 integration
+├── tests/                             # 22 test files
+│   ├── test_stage2_buildability.py   # Buildability validation
+│   ├── test_gradient_control_map.py  # Gradient blending tests
+│   └── verify_setup.py               # Dependency checker
+├── docs/                              # Documentation
+│   ├── analysis/                      # Research & analysis
+│   │   └── map_gen_enhancement.md    # Evidence-based requirements
+│   ├── features/                      # Feature documentation
+│   └── fixes/                         # Bug fix documentation
+├── examples/                          # Example scripts
+│   ├── 01_basic_usage.py             # Getting started
+│   ├── 02_preset_terrains.py         # Using presets
+│   ├── 03_with_worldmap.py           # Heightmap + worldmap
+│   └── 04_custom_terrain.py          # Custom design
+├── output/                            # Generated heightmaps
+├── requirements.txt                   # Python dependencies
+├── ARCHITECTURE.md                    # Architecture documentation
+├── CHANGELOG.md                       # Version history
+├── TODO.md                            # Task tracking
+├── CLAUDE.md                          # Development instructions
+└── README.md                          # This file
 ```
 
 ## Importing Into CS2
@@ -456,7 +509,7 @@ This tool is provided as-is for use with Cities Skylines 2. The code is based on
 
 ---
 
-**Version**: 2.1.1
-**Last Updated**: 2025-10-05
+**Version**: 2.4.2 (unreleased)
+**Last Updated**: 2025-10-07
 **Compatible with**: Cities Skylines 2 (all versions)
-**Key Updates**: Water features now working, GUI preview updates automatically, elevation legend layout fixed
+**Key Updates**: Gradient-based buildability, advanced tuning controls, user-configurable erosion parameters, legacy file cleanup

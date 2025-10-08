@@ -167,6 +167,62 @@ docs/
 
 ---
 
+## 2025-10-07 - Codebase Cleanup: Legacy Files and Redundant Code
+
+**Reason:** Remove confusing legacy files and redundant implementations per gap analysis in `IMPLEMENTATION_VS_REQUIREMENTS_ANALYSIS.md`.
+
+### Files Renamed
+
+#### Legacy Implementations
+- `src/coherent_terrain_generator.py` → `src/coherent_terrain_generator_legacy.py`
+  - **Why**: Superseded by `coherent_terrain_generator_optimized.py` (9-14× faster via FFT)
+  - **Status**: Retained for benchmarking in `test_stage1_quickwin2.py`
+  - **Recovery**: Can be restored via git history if needed
+  - **Note**: Test imports updated to use `_legacy.py` version explicitly
+
+### Files Removed
+
+#### Redundant Implementations
+- `src/techniques/slope_analysis.py` (~270 lines)
+  - **Why**: Functionality completely redundant with `buildability_enforcer.py`
+  - **Evidence**: Not imported anywhere in active codebase
+  - **Comparison**:
+    - SlopeAnalyzer.calculate_slopes() → BuildabilityEnforcer.calculate_slopes()
+    - SlopeAnalyzer.analyze_buildability() → BuildabilityEnforcer.analyze_buildability()
+  - **Decision**: DELETE (100% redundant, zero unique functionality)
+
+### Files Verified as ACTIVE (Not Removed)
+
+**Corrected Analysis**:
+- `src/terrain_realism.py` - **ACTIVE** (used in GUI line 809: TerrainRealism.make_realistic())
+  - Initial analysis incorrectly marked as unused
+  - Provides domain warping, ridge enhancement, valley carving
+  - Integrated in standard generation pipeline (buildability disabled path)
+
+### Files Modified
+
+- `tests/test_stage1_quickwin2.py` - Updated import to use `coherent_terrain_generator_legacy`
+- `FILE_REMOVAL_LOG.md` - This entry documenting cleanup rationale
+
+### Recovery Information
+
+**Commit Hash (before cleanup):** Pending (in current session)
+**Branch:** main
+**Date:** 2025-10-07
+
+All files can be recovered from git history if needed. Cleanup based on comprehensive gap analysis comparing original requirements (`map_gen_enhancement.md`) against actual implementation.
+
+### Cleanup Summary
+
+**Total Files Affected**: 2 files
+- 1 renamed (legacy marker added)
+- 1 deleted (redundant)
+- 1 test updated (import path)
+
+**Impact**: Reduced confusion, clearer file purpose, no loss of functionality
+
+---
+
 ## Notes
 
 - All file movements preserve git history via standard mv/git commands
@@ -174,3 +230,4 @@ docs/
 - Test scripts consolidated in tests/evaluation/ for easy discovery
 - Analysis and results separated for clarity
 - Duplicates removed to avoid confusion about which version is current
+- Legacy files marked with `_legacy` suffix for clarity
