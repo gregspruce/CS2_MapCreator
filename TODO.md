@@ -1,16 +1,157 @@
 # TODO - CS2 Heightmap Generator
 
 **Last Updated**: 2025-10-08
-**Current Version**: 2.4.4 (unreleased) - Priority 2+6 System COMPLETE, GUI INTEGRATED
-**Status**: Stage 1 COMPLETE ✓ | Priority 2+6 COMPLETE ✅ | GUI UPDATED ✅ | Target: 15-25% buildable (achieves 18.5%)
+**Current Version**: 2.5.0-dev (architecture replacement in progress)
+**Status**: ARCHITECTURAL REDESIGN INITIATED 🔄 | Deep Research Complete ✅ | 16-Week Implementation Planned 📋
 
 ---
 
-## ✅ PROGRESS UPDATE: Priority 2+6 System COMPLETE & GUI INTEGRATED (2025-10-08)
+## 🚨 CRITICAL ARCHITECTURAL DECISION (2025-10-08)
 
-**Status**: IMPLEMENTATION COMPLETE ✅ | GUI INTEGRATED ✅ | ACHIEVES 18.5% BUILDABLE ⚠️
-**Completed**: Tasks 2.1-2.3 + Priority 6 Enforcement + GUI Integration + Smart Normalization Fix
-**Target Adjusted**: 45-55% → 15-25% buildable (current: 18.5%)
+**Decision**: Replace Priority 2+6 binary mask system with hybrid zoned generation + hydraulic erosion
+
+**Rationale**: Claude Desktop (Opus 4.1) deep research analysis determined current architecture is "fundamentally architecturally flawed" and mathematically cannot achieve 30-60% buildability target.
+
+**Key Findings**:
+- Binary mask × noise = frequency domain convolution → pincushion problem (isolated peaks)
+- Amplitude-slope proportionality: ∇(A·noise) = A·∇noise → doubling amplitude doubles slopes
+- FBM with 6 octaves multiplies slopes 6-7× → theoretical maximum ~45%, current achieves only 18.5%
+- Industry-proven solution: Hydraulic erosion creates buildability emergently via sediment deposition
+
+**Implementation Plan**: See `Claude_Handoff/IMPLEMENTATION_PLAN.md` (16-week phased approach)
+
+**Expected Result**: 55-65% buildable (vs current 18.5%)
+
+---
+
+## 🎯 NEW IMPLEMENTATION ROADMAP (16 Weeks)
+
+### Phase 1: Foundation Improvements (Weeks 1-2) - TARGET: 23-28% buildable
+
+**Objective**: Quick wins with current architecture before replacement
+
+**Tasks**:
+- [ ] Implement conditional octave amplitude (buildable zones use octaves 1-3, scenic use all 6)
+- [ ] Enhance multi-octave weighting (lower persistence, reduce high-frequency contribution)
+- [ ] Improve domain warping (fractal warping, zone-modulated intensity)
+- [ ] Add validation metrics (slope histograms, spatial autocorrelation)
+- [ ] Create comparison reports vs current 18.5% baseline
+
+**Files to Create/Modify**:
+- `src/generation/conditional_octave_generator.py` (new)
+- `src/noise_generator.py` (enhance warping)
+- `tests/test_phase1_improvements.py` (new)
+
+**Success Criteria**: Achieve 23-28% buildable OR confirm architectural limits
+
+---
+
+### Phase 2: Zone Generation System (Weeks 3-6) - TARGET: 40-50% buildable
+
+**Objective**: Replace binary mask with continuous buildability potential maps
+
+**Tasks**:
+- [ ] Implement buildability zone generator (Voronoi + distance fields)
+- [ ] Create zone-weighted amplitude modulation (continuous, not binary)
+- [ ] Integrate with tectonic fault generation (keep geological realism)
+- [ ] Add GUI mode selector (Legacy vs Zone-Based)
+- [ ] Comprehensive testing and validation
+
+**Files to Create**:
+- `src/generation/buildability_zone_generator.py`
+- `src/generation/zone_weighted_generator.py`
+- `tests/test_zone_generation.py`
+- `tests/test_zone_integration.py`
+
+**Key Algorithm**:
+```python
+# Continuous buildability potential (0-1, not binary)
+potential = generate_buildability_zones(target_percent=0.60)
+
+# Zone-weighted amplitude (smooth transition)
+amplitude = base_amplitude * (0.3 + 0.7 * (1 - potential))
+terrain = generate_noise(amplitude)
+```
+
+**Success Criteria**: Achieve 40-50% buildable WITHOUT erosion (fallback milestone if erosion fails)
+
+---
+
+### Phase 3: Hydraulic Erosion Integration (Weeks 7-12) - TARGET: 55-65% buildable
+
+**Objective**: Implement industry-proven hydraulic erosion for emergent buildability
+
+**Tasks**:
+- [ ] Implement particle-based erosion (100k-200k particles)
+- [ ] Zone-modulated erosion strength (strong in buildable, gentle in scenic)
+- [ ] Create GPU compute shader implementation (WGSL)
+- [ ] Add erosion progress visualization
+- [ ] Comprehensive performance benchmarking
+
+**Files to Create**:
+- `src/generation/hydraulic_erosion_v2.py` (CPU implementation)
+- `src/generation/erosion_gpu.py` (GPU compute shader)
+- `shaders/hydraulic_erosion.wgsl` (WGSL shader)
+- `tests/test_erosion_v2.py`
+
+**Performance Targets**:
+- CPU: 2-5 minutes for 4096×4096
+- GPU: 8-15 seconds for 4096×4096
+
+**Success Criteria**: Achieve 55-65% buildable with geological realism maintained
+
+---
+
+### Phase 4: River and Feature Placement (Weeks 13-14)
+
+**Tasks**:
+- [ ] Implement flow accumulation analysis
+- [ ] River path detection and placement
+- [ ] Lake and dam site identification
+- [ ] Feature carving with zone awareness
+
+**Files to Create**:
+- `src/generation/flow_analysis.py`
+- `tests/test_river_placement.py`
+
+---
+
+### Phase 5: Detail and Polish (Weeks 15-16)
+
+**Tasks**:
+- [ ] Multi-scale detail addition
+- [ ] Terrain type presets (mountainous, rolling, coastal)
+- [ ] Constraint verification system
+- [ ] Documentation and user guides
+
+---
+
+## 📋 IMMEDIATE PRIORITY (This Week - Week 0)
+
+### Week 0: Preparation and Foundation
+
+**Tasks**:
+- [x] Deep research analysis (Claude Desktop Opus 4.1) - COMPLETE ✅
+- [x] Create comprehensive implementation plan - COMPLETE ✅
+- [ ] Update project management files (TODO, CHANGELOG, claude_continue) - IN PROGRESS
+- [ ] Commit and push handoff package and implementation plan
+- [ ] Create new module structure (`src/generation/`)
+- [ ] Set up Phase 1 development environment
+- [ ] Create Phase 1 validation framework
+
+**Next Session Start**: Begin Phase 1, Week 1 tasks
+
+---
+
+## 🗂️ LEGACY SYSTEM STATUS (Priority 2+6)
+
+**Status**: ⚠️ DEPRECATED - Will be maintained but not enhanced
+
+**Achievement**: 18.5% buildable (vs 45-55% target)
+**Improvement**: 5.4× better than gradient system (3.4%)
+**Architecture**: Sound (no frequency discontinuities), but mathematically limited
+
+### Legacy System Components (Keep for backward compatibility)
 
 ### Completed Work
 

@@ -5,7 +5,94 @@ All notable changes to the CS2 Heightmap Generator project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - Version 2.5.0-dev
+
+### Changed - CRITICAL ARCHITECTURAL DECISION (2025-10-08)
+
+#### Decision: Replace Priority 2+6 System with Hybrid Zoned Generation + Hydraulic Erosion
+
+**Rationale**: Deep research analysis by Claude Desktop (Opus 4.1) determined that the current Priority 2+6 binary mask + amplitude modulation architecture is "fundamentally architecturally flawed" and mathematically cannot achieve the 30-60% buildability target required for Cities: Skylines 2 gameplay.
+
+**Current Achievement**: 18.5% buildable terrain
+**Target**: 55-65% buildable terrain
+**Gap**: 36.5-46.5 percentage points (197-351% increase needed)
+
+**Key Research Findings**:
+
+1. **Frequency Domain Convolution Problem**:
+   - Binary mask multiplication in spatial domain = convolution in frequency domain
+   - Creates isolated frequency packages → pincushion problem (isolated peaks instead of coherent ranges)
+   - Mathematically proven to prevent coherent mountain range formation
+
+2. **Amplitude-Slope Proportionality**:
+   - Mathematical relationship: ∇(A·noise) = A·∇noise
+   - Doubling amplitude doubles slopes → no escape from steep gradients
+   - Cannot achieve buildability by reducing amplitude without losing all terrain features
+
+3. **Fractal Brownian Motion Accumulation**:
+   - FBM with 6 octaves and persistence=0.5 multiplies slopes by 6-7×
+   - Theoretical maximum buildability ~45% for pure noise fields
+   - Current system achieves only 18.5% (60% below theoretical maximum)
+
+4. **Industry-Proven Solution**:
+   - Hydraulic erosion creates buildability emergently through sediment deposition
+   - Flat valleys form naturally through erosion/deposition physics
+   - Used by World Machine, Gaea, and all professional terrain tools
+
+**Implementation Plan**: See `Claude_Handoff/IMPLEMENTATION_PLAN.md`
+
+**Phased Approach** (16 weeks total):
+
+- **Phase 1: Foundation Improvements (Weeks 1-2)** → 23-28% buildable
+  - Quick wins with current architecture before replacement
+  - Conditional octave amplitude, enhanced warping, improved weighting
+  - Validates architectural limits empirically
+
+- **Phase 2: Zone Generation System (Weeks 3-6)** → 40-50% buildable
+  - Replace binary mask with continuous buildability potential maps (0-1, not binary)
+  - Zone-weighted amplitude modulation (smooth transitions, not hard boundaries)
+  - **FALLBACK MILESTONE**: Shippable if erosion proves problematic
+
+- **Phase 3: Hydraulic Erosion Integration (Weeks 7-12)** → 55-65% buildable
+  - Particle-based erosion (100k-200k particles)
+  - Zone-modulated erosion strength (strong in buildable, gentle in scenic)
+  - GPU compute shader implementation (WGSL) for performance
+
+- **Phase 4: River and Feature Placement (Weeks 13-14)**
+  - Flow accumulation analysis and river detection
+  - Lake and dam site identification
+  - Feature carving with zone awareness
+
+- **Phase 5: Detail and Polish (Weeks 15-16)**
+  - Multi-scale detail addition
+  - Terrain type presets
+  - Constraint verification system
+
+**Backward Compatibility**:
+- Priority 2+6 system marked as DEPRECATED (not deleted)
+- Legacy mode available in GUI for comparison
+- All existing parameters and controls maintained
+- Migration path documented for users
+
+**Expected Results**:
+
+| Metric | Current (v2.4.4) | Target (v2.5.0) | Improvement |
+|--------|------------------|-----------------|-------------|
+| Buildable % | 18.5% | 55-65% | 3.0-3.5× |
+| Mean slope (buildable) | 27.8% | <5% | 5.6× better |
+| Pincushion problem | Present | Resolved | Qualitative |
+| Geological realism | Good | Excellent | Enhanced |
+| Generation time | 5-15s | 8-15s (GPU) / 2-5min (CPU) | Comparable |
+
+**Files Created**:
+- `Claude_Handoff/IMPLEMENTATION_PLAN.md` - Complete 16-week roadmap
+- `Claude_Handoff/Results/Solving CS2 Map Generator Buildability.md` - Research report
+- Updated `TODO.md` - New implementation priorities
+- Updated `CHANGELOG.md` - This entry
+
+**Status**: Week 0 preparation phase (plan complete, awaiting implementation start)
+
+---
 
 ### Fixed - Critical: GUI Terrain Analysis Slope Calculation (2025-10-08)
 
