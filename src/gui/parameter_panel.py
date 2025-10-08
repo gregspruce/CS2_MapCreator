@@ -78,15 +78,20 @@ class ParameterPanel(ttk.Frame):
             'deposition_rate': tk.DoubleVar(value=0.08),       # How quickly sediment deposits (0.01-0.15)
             'evaporation_rate': tk.DoubleVar(value=0.015),     # Water loss rate (0.005-0.03)
             'sediment_capacity': tk.DoubleVar(value=3.0),      # Max sediment per water unit (1.0-6.0)
-            # Stage 2 Buildability Constraints controls (DEFAULTS: enabled, 40%)
+            # Stage 2: Priority 2 + Priority 6 Buildability System (NEW IMPLEMENTATION)
             'buildability_enabled': tk.BooleanVar(value=True),  # DEFAULT: enabled
-            'buildability_target': tk.DoubleVar(value=40.0),  # DEFAULT: 40% (was 50%)
-            # Gradient blending layer parameters (tunable octaves and recursive strength)
-            'buildable_octaves': tk.IntVar(value=2),  # Buildable layer octaves (1-4)
-            'moderate_octaves': tk.IntVar(value=5),  # Moderate layer octaves (3-6)
-            'scenic_octaves': tk.IntVar(value=7),  # Scenic layer octaves (5-9)
-            'moderate_recursive': tk.DoubleVar(value=0.5),  # Moderate recursive strength (0.0-2.0)
-            'scenic_recursive': tk.DoubleVar(value=1.0)  # Scenic recursive strength (0.0-3.0)
+            'buildability_target': tk.DoubleVar(value=50.0),  # Target: 45-55% (currently achieves ~18%)
+            # Task 2.1: Tectonic Structure Generation
+            'tectonic_enabled': tk.BooleanVar(value=True),  # Use tectonic fault lines for geological realism
+            'num_fault_lines': tk.IntVar(value=5),  # Number of fault lines (3-7)
+            'max_uplift': tk.DoubleVar(value=0.2),  # Mountain height (0.15-0.6, best: 0.2)
+            'falloff_meters': tk.DoubleVar(value=600.0),  # Distance from faults (300-1000m)
+            # Task 2.3: Amplitude Modulation (single frequency field)
+            'buildable_amplitude': tk.DoubleVar(value=0.05),  # Noise in buildable zones (0.01-0.2, best: 0.05)
+            'scenic_amplitude': tk.DoubleVar(value=0.2),  # Noise in scenic zones (0.1-1.0, best: 0.2)
+            # Priority 6: Buildability Enforcement (smart blur)
+            'enforcement_iterations': tk.IntVar(value=10),  # Smoothing iterations (0-20)
+            'enforcement_sigma': tk.DoubleVar(value=12.0)  # Smoothing strength (8-20)
         }
 
         # Advanced mode (technical parameters) - hidden by default
@@ -302,96 +307,91 @@ class ParameterPanel(ttk.Frame):
         )
         explanation_erosion.pack(anchor=tk.W, pady=(5, 0))
 
-        # Buildability Constraints section (Stage 2 Task 2.2)
-        buildability_frame = ttk.LabelFrame(tab, text="Buildability Constraints (Stage 2)", padding=10)
+        # Buildability System (Priority 2 + Priority 6)
+        buildability_frame = ttk.LabelFrame(tab, text="Buildability System (Priority 2 + 6)", padding=10)
         buildability_frame.pack(fill=tk.X, pady=(10, 0))
 
         # Info label
         info_build = ttk.Label(
             buildability_frame,
-            text="Generates terrain with naturally smooth buildable zones.\nNOT post-processing - terrain is GENERATED buildable.",
+            text="Tectonic structure + amplitude modulation + smart blur\nCurrently achieves ~18% buildable (target: 45-55%)",
             font=('Arial', 9),
             justify=tk.LEFT,
-            foreground='gray30'
+            foreground='orange3'
         )
         info_build.pack(pady=(0, 10), anchor=tk.W)
 
         # Enable buildability checkbox
         buildability_check = ttk.Checkbutton(
             buildability_frame,
-            text="Enable Buildability Constraints",
+            text="Enable Buildability System",
             variable=self.params['buildability_enabled']
         )
         buildability_check.pack(anchor=tk.W, pady=(0, 10))
 
-        # Target percentage slider
-        target_frame = ttk.Frame(buildability_frame)
-        target_frame.pack(fill=tk.X, pady=(0, 5))
+        # Tectonic Structure section
+        tectonic_frame = ttk.LabelFrame(buildability_frame, text="Tectonic Structure (Task 2.1)", padding=5)
+        tectonic_frame.pack(fill=tk.X, pady=(0, 10))
 
-        ttk.Label(target_frame, text="Target Buildable %:").pack(side=tk.LEFT, padx=(0, 10))
-
-        target_slider = ttk.Scale(
-            target_frame,
-            from_=30.0,
-            to=70.0,
-            variable=self.params['buildability_target'],
-            orient=tk.HORIZONTAL
-        )
-        target_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
-
-        target_value_label = ttk.Label(target_frame, text="50%", width=5)
-        target_value_label.pack(side=tk.LEFT)
-
-        # Update label when slider changes
-        def update_target_label(*args):
-            value = self.params['buildability_target'].get()
-            target_value_label.config(text=f"{value:.0f}%")
-
-        self.params['buildability_target'].trace_add('write', update_target_label)
-
-        # Advanced tuning section (collapsible)
-        advanced_frame = ttk.LabelFrame(buildability_frame, text="Advanced Tuning (Octaves & Recursive Warp)", padding=5)
-        advanced_frame.pack(fill=tk.X, pady=(10, 0))
-
-        # Buildable layer octaves
+        # Number of fault lines
         self._create_slider_control(
-            advanced_frame, "Buildable Octaves:", self.params['buildable_octaves'],
-            1, 4, "{:.0f}", "Lower = smoother (default: 2)"
+            tectonic_frame, "Fault Lines:", self.params['num_fault_lines'],
+            3, 7, "{:.0f}", "Geological features (3=simple, 7=complex)"
         )
 
-        # Moderate layer octaves
+        # Max uplift
         self._create_slider_control(
-            advanced_frame, "Moderate Octaves:", self.params['moderate_octaves'],
-            3, 6, "{:.0f}", "Balance detail/buildability (default: 5)"
+            tectonic_frame, "Mountain Height:", self.params['max_uplift'],
+            0.15, 0.6, "{:.2f}", "Tectonic uplift (0.2=gentle, 0.6=extreme) [best: 0.2]"
         )
 
-        # Scenic layer octaves
+        # Falloff distance
         self._create_slider_control(
-            advanced_frame, "Scenic Octaves:", self.params['scenic_octaves'],
-            5, 9, "{:.0f}", "Higher = more detail (default: 7)"
+            tectonic_frame, "Falloff Distance (m):", self.params['falloff_meters'],
+            300.0, 1000.0, "{:.0f}", "Mountain slope distance (600=moderate)"
         )
 
-        # Moderate recursive strength
+        # Amplitude Modulation section
+        amplitude_frame = ttk.LabelFrame(buildability_frame, text="Noise Detail (Task 2.3)", padding=5)
+        amplitude_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Buildable amplitude
         self._create_slider_control(
-            advanced_frame, "Moderate Recursive:", self.params['moderate_recursive'],
-            0.0, 2.0, "{:.1f}", "Gentle realism (default: 0.5)"
+            amplitude_frame, "Buildable Zones:", self.params['buildable_amplitude'],
+            0.01, 0.2, "{:.3f}", "Texture detail in flat areas (0.05=gentle) [best: 0.05]"
         )
 
-        # Scenic recursive strength
+        # Scenic amplitude
         self._create_slider_control(
-            advanced_frame, "Scenic Recursive:", self.params['scenic_recursive'],
-            0.0, 3.0, "{:.1f}", "Strong realism (default: 1.0)"
+            amplitude_frame, "Scenic Zones:", self.params['scenic_amplitude'],
+            0.1, 1.0, "{:.2f}", "Detail in mountains (0.2=moderate, 1.0=extreme) [best: 0.2]"
         )
 
-        # Explanation of what this does
-        explanation = ttk.Label(
+        # Priority 6 Enforcement section
+        enforcement_frame = ttk.LabelFrame(buildability_frame, text="Slope Smoothing (Priority 6)", padding=5)
+        enforcement_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Enforcement iterations
+        self._create_slider_control(
+            enforcement_frame, "Iterations:", self.params['enforcement_iterations'],
+            0, 20, "{:.0f}", "Smoothing passes (10=moderate, 20=aggressive)"
+        )
+
+        # Enforcement sigma
+        self._create_slider_control(
+            enforcement_frame, "Strength (sigma):", self.params['enforcement_sigma'],
+            8.0, 20.0, "{:.1f}", "Blur radius in pixels (12=moderate, 20=strong)"
+        )
+
+        # Status note
+        status_note = ttk.Label(
             buildability_frame,
-            text="Uses gradient blending (3 layers) for smooth transitions.\nTune octaves/recursive to balance realism vs buildability.",
+            text="Note: System uses single frequency field to avoid discontinuities.\nCurrent best parameters achieve 18.5% buildable terrain.",
             font=('Arial', 8),
             foreground='gray50',
             justify=tk.LEFT
         )
-        explanation.pack(anchor=tk.W, pady=(5, 0))
+        status_note.pack(anchor=tk.W, pady=(5, 0))
 
     def _create_water_tab(self):
         """Create water features tab."""
@@ -768,12 +768,15 @@ class ParameterPanel(ttk.Frame):
             # Stage 2 buildability parameters
             'buildability_enabled': self.params['buildability_enabled'].get(),
             'buildability_target': self.params['buildability_target'].get(),
-            # Gradient blending tunable parameters (Advanced Tuning)
-            'buildable_octaves': self.params['buildable_octaves'].get(),
-            'moderate_octaves': self.params['moderate_octaves'].get(),
-            'scenic_octaves': self.params['scenic_octaves'].get(),
-            'moderate_recursive': self.params['moderate_recursive'].get(),
-            'scenic_recursive': self.params['scenic_recursive'].get()
+            # Priority 2 + Priority 6 System Parameters
+            'tectonic_enabled': self.params['tectonic_enabled'].get(),
+            'num_fault_lines': self.params['num_fault_lines'].get(),
+            'max_uplift': self.params['max_uplift'].get(),
+            'falloff_meters': self.params['falloff_meters'].get(),
+            'buildable_amplitude': self.params['buildable_amplitude'].get(),
+            'scenic_amplitude': self.params['scenic_amplitude'].get(),
+            'enforcement_iterations': self.params['enforcement_iterations'].get(),
+            'enforcement_sigma': self.params['enforcement_sigma'].get()
         }
 
     def set_parameters(self, params: Dict):

@@ -1,0 +1,5 @@
+Mean elevation: 0.193
+Median elevation: 0.101
+Std deviation: 0.214
+Low elevation area: 74.6%
+Status: PASS

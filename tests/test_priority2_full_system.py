@@ -1,16 +1,17 @@
 """
-Integration Test for Priority 2: Complete Tectonic Structure + Buildability System
+Integration Test for Priority 2 + Priority 6: Complete Buildability System
 
 Tests the full pipeline:
 - Task 2.1: Tectonic fault line generation
 - Task 2.2: Binary buildability mask generation
 - Task 2.3: Amplitude modulated terrain generation
+- Priority 6: Buildability enforcement (smart blur)
 
 Validates against original failure (gradient system: 3.4% buildable, 6× jagged)
 and user feedback (slope spikes in buildable zones).
 
 WHY THIS TEST MATTERS:
-This is THE validation that Priority 2 solves the buildability crisis.
+This is THE validation that Priority 2 + Priority 6 solves the buildability crisis.
 The gradient control map system failed catastrophically:
 - Only 3.4% buildable (vs 50% target) - 93% miss
 - 6× more jagged than example heightmaps
@@ -23,6 +24,7 @@ This test proves the new system:
 - Avoids frequency discontinuities
 
 Created: 2025-10-08
+Updated: 2025-10-08 (Added Priority 6 enforcement)
 """
 
 import sys
@@ -71,11 +73,11 @@ def calculate_gradients(heightmap: np.ndarray) -> np.ndarray:
 
 
 def test_priority2_full_system():
-    """Test complete Priority 2 system (Tasks 2.1+2.2+2.3)"""
+    """Test complete Priority 2 + Priority 6 system (Tasks 2.1+2.2+2.3 + Enforcement)"""
 
     print("\n" + "="*70)
-    print("PRIORITY 2 FULL SYSTEM TEST")
-    print("Tectonic Structure + Binary Mask + Amplitude Modulation")
+    print("PRIORITY 2 + PRIORITY 6 FULL SYSTEM TEST")
+    print("Tectonic Structure + Binary Mask + Amplitude Modulation + Smart Blur Enforcement")
     print("="*70)
 
     # Test 1: Full Pipeline Execution
@@ -97,7 +99,7 @@ def test_priority2_full_system():
     distance_field = generator.calculate_distance_field(fault_mask)
     tectonic_elevation = generator.apply_uplift_profile(
         distance_field,
-        max_uplift=0.8,
+        max_uplift=0.6,  # Moderate tectonic structure for geological realism
         falloff_meters=600.0
     )
 
@@ -123,19 +125,37 @@ def test_priority2_full_system():
     start_time = time.time()
 
     noise_gen = NoiseGenerator(seed=42)
-    final_terrain, terrain_stats = TectonicStructureGenerator.generate_amplitude_modulated_terrain(
+    raw_terrain, terrain_stats = TectonicStructureGenerator.generate_amplitude_modulated_terrain(
         tectonic_elevation=tectonic_elevation,
         buildability_mask=binary_mask,
         noise_generator=noise_gen,
-        buildable_amplitude=0.3,
-        scenic_amplitude=1.0,
+        buildable_amplitude=0.02,  # MINIMAL noise in buildable zones (just texture)
+        scenic_amplitude=0.2,      # Moderate noise for scenic visual interest
         noise_octaves=6,
-        verbose=False
+        verbose=True  # Enable verbose to see normalization path
     )
 
     task23_time = time.time() - start_time
-    total_time = task21_time + task22_time + task23_time
-    print(f"    [OK] Final terrain generated: {final_terrain.shape} in {task23_time:.2f}s")
+    print(f"    [OK] Raw terrain generated: {raw_terrain.shape} in {task23_time:.2f}s")
+
+    # Priority 6: Buildability Enforcement
+    print("\n  [Priority 6] Applying buildability enforcement (smart blur)...")
+    start_time = time.time()
+
+    final_terrain, enforcement_stats = BuildabilityEnforcer.enforce_buildability_constraint(
+        heightmap=raw_terrain,
+        buildable_mask=binary_mask,
+        target_pct=50.0,
+        max_iterations=10,  # Moderate iterations with minimal noise
+        sigma=12.0,         # Moderate smoothing strength
+        tolerance=5.0,
+        map_size_meters=14336.0,
+        verbose=True
+    )
+
+    priority6_time = time.time() - start_time
+    total_time = task21_time + task22_time + task23_time + priority6_time
+    print(f"    [OK] Enforcement complete: {enforcement_stats['iterations']} iterations in {priority6_time:.2f}s")
     print(f"\n    [OK] Full pipeline completed in {total_time:.2f}s")
 
     # Test 2: Buildable Percentage Target (CRITICAL METRIC)
@@ -294,7 +314,7 @@ def test_priority2_full_system():
 
     print(f"\n" + "="*70)
     if tests_passed >= 4:  # Allow one test to be marginal
-        print("PRIORITY 2 FULL SYSTEM TEST: PASSED [OK]")
+        print("PRIORITY 2 + PRIORITY 6 FULL SYSTEM TEST: PASSED [OK]")
         print("="*70)
         print(f"\nPassed {tests_passed}/{total_tests} critical tests")
         print(f"\nSummary:")
@@ -302,18 +322,19 @@ def test_priority2_full_system():
         print(f"[OK] Buildable slope control: Mean {mean_slope_buildable:.1f}%, Max {max_slope_buildable:.1f}%")
         print(f"[OK] User feedback addressed: Slope spikes contained to scenic zones")
         print(f"[OK] No frequency discontinuities: Ratio {boundary_ratio:.2f}x")
+        print(f"[OK] Priority 6 enforcement: {enforcement_stats['iterations']} iterations")
         print(f"\nSystem is READY FOR PRODUCTION")
         return True
     else:
-        print("PRIORITY 2 FULL SYSTEM TEST: NEEDS TUNING [WARNING]")
+        print("PRIORITY 2 + PRIORITY 6 FULL SYSTEM TEST: NEEDS TUNING [WARNING]")
         print("="*70)
         print(f"\nPassed {tests_passed}/{total_tests} critical tests")
-        print(f"\nISSUE IDENTIFIED: Slopes are too extreme overall")
-        print(f"ROOT CAUSE: Tectonic structure + noise combination needs tuning")
+        print(f"\nISSUE IDENTIFIED: Slopes are too extreme even after Priority 6 enforcement")
+        print(f"ROOT CAUSE: Parameters need further tuning")
         print(f"\nRECOMMENDATION:")
         print(f"  1. Reduce tectonic max_uplift (0.8 -> 0.3-0.5)")
-        print(f"  2. Reduce noise scale or amplitude")
-        print(f"  3. Apply smoothing to final terrain")
+        print(f"  2. Reduce noise amplitudes (0.3/1.0 -> 0.1/0.3)")
+        print(f"  3. Increase Priority 6 iterations or sigma")
         print(f"\nArchitecture is sound, parameters need adjustment")
         return False
 

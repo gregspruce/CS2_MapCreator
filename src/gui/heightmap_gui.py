@@ -592,127 +592,85 @@ class HeightmapGUI(tk.Tk):
             buildability_enabled = intuitive_params.get('buildability_enabled', False)
             buildability_target = intuitive_params.get('buildability_target', 50.0)
 
-            # Get tunable octave/recursive parameters (defaults match old hardcoded values)
-            buildable_octaves = intuitive_params.get('buildable_octaves', 2)
-            moderate_octaves = intuitive_params.get('moderate_octaves', 5)
-            scenic_octaves = intuitive_params.get('scenic_octaves', 7)
-            moderate_recursive = intuitive_params.get('moderate_recursive', 0.5)
-            scenic_recursive = intuitive_params.get('scenic_recursive', 1.0)
-
-            # DEBUG: Log tunable parameters
-            print(f"[DEBUG] Tunable parameters: buildable_oct={buildable_octaves}, moderate_oct={moderate_octaves}, scenic_oct={scenic_octaves}, moderate_rec={moderate_recursive}, scenic_rec={scenic_recursive}")
 
             if buildability_enabled:
-                print(f"[STAGE2] Buildability constraint ENABLED (target={buildability_target:.1f}%)")
-                print("[STAGE2] Using conditional octave generation (not post-processing)")
+                print(f"[PRIORITY 2+6] Buildability system ENABLED (target={buildability_target:.1f}%)")
+                print("[PRIORITY 2+6] Tectonic Structure + Amplitude Modulation + Smart Blur")
 
-                # Generate GRADIENT control map (continuous 0.0-1.0, not binary 0 or 1)
-                # WHY: Gradient creates smooth transitions from buildable → moderate → scenic
-                # This avoids "oscillating wildly" between overly smooth and overly jagged
-                progress.update(0, "Generating gradient control map...")
-                control_target_adjusted = min(70.0, buildability_target * 1.4)  # 70% for 50% final
-                print(f"[STAGE2] Gradient control map (target={control_target_adjusted:.0f}%)")
-                control_map_raw = self.noise_gen.generate_buildability_control_map(
-                    resolution=self.resolution,
-                    target_percent=control_target_adjusted,
-                    seed=self.noise_gen.seed,
-                    smoothing_radius=max(10, self.resolution // 100)  # More smoothing for gradients
-                )
-                # Keep as gradient (DON'T binarize) - normalize to 0.0-1.0
-                control_map = (control_map_raw - control_map_raw.min()) / (control_map_raw.max() - control_map_raw.min())
-                print(f"[STAGE2] Gradient: min={control_map.min():.2f}, max={control_map.max():.2f}, mean={control_map.mean():.2f}")
+                # Get new system parameters
+                num_fault_lines = intuitive_params.get('num_fault_lines', 5)
+                max_uplift = intuitive_params.get('max_uplift', 0.2)
+                falloff_meters = intuitive_params.get('falloff_meters', 600.0)
+                buildable_amplitude = intuitive_params.get('buildable_amplitude', 0.05)
+                scenic_amplitude = intuitive_params.get('scenic_amplitude', 0.2)
+                enforcement_iterations = intuitive_params.get('enforcement_iterations', 10)
+                enforcement_sigma = intuitive_params.get('enforcement_sigma', 12.0)
 
-                # Generate 3 layers for gradient blending (addresses "oscillating" problem)
-                # Layer 1: Buildable (octaves=2, no warp) for control_map=1.0 areas
-                # Layer 2: Moderate (octaves=5, gentle recursive) for control_map=0.5 areas
-                # Layer 3: Scenic (octaves=7, moderate recursive) for control_map=0.0 areas
-                buildable_scale = 500 * (self.resolution / 512)
+                # Task 2.1: Generate Tectonic Structure
+                progress.update(5, "Generating tectonic fault lines...")
+                print(f"[TASK 2.1] Tectonic structure (faults={num_fault_lines}, uplift={max_uplift:.2f})")
 
-                progress.update(5, "Generating buildable layer...")
-                print(f"[STAGE2] Layer 1: octaves={buildable_octaves}, no warp (fully buildable)")
-                layer_buildable = self.noise_gen.generate_perlin(
-                    resolution=self.resolution,
-                    scale=buildable_scale,
-                    octaves=buildable_octaves,
-                    persistence=0.3,
-                    lacunarity=technical_params['lacunarity'],
-                    show_progress=True,
-                    domain_warp_amp=0.0,
-                    recursive_warp=False
+                from ..tectonic_generator import TectonicStructureGenerator
+                tectonic_gen = TectonicStructureGenerator(resolution=self.resolution)
+
+                fault_lines = tectonic_gen.generate_fault_lines(
+                    num_faults=num_fault_lines,
+                    terrain_type='mountains',  # Use terrain_type from preset later
+                    seed=self.noise_gen.seed
                 )
 
-                progress.update(20, "Generating moderate layer...")
-                print(f"[STAGE2] Layer 2: octaves={moderate_octaves}, recursive={moderate_recursive} (moderately scenic)")
-                layer_moderate = self.noise_gen.generate_perlin(
-                    resolution=self.resolution,
-                    scale=200,  # Medium scale
-                    octaves=moderate_octaves,  # User-tunable
-                    persistence=0.4,
-                    lacunarity=technical_params['lacunarity'],
-                    show_progress=True,
-                    domain_warp_amp=60.0,
-                    recursive_warp=True,
-                    recursive_warp_strength=moderate_recursive  # User-tunable
+                progress.update(15, "Creating tectonic elevation...")
+                fault_mask = tectonic_gen.create_fault_mask(fault_lines)
+                distance_field = tectonic_gen.calculate_distance_field(fault_mask)
+                tectonic_elevation = tectonic_gen.apply_uplift_profile(
+                    distance_field,
+                    max_uplift=max_uplift,
+                    falloff_meters=falloff_meters
                 )
+                print(f"[TASK 2.1] Tectonic structure complete: range=[{tectonic_elevation.min():.3f}, {tectonic_elevation.max():.3f}]")
 
-                progress.update(40, "Generating scenic layer...")
-                print(f"[STAGE2] Layer 3: octaves={scenic_octaves}, recursive={scenic_recursive} (highly scenic)")
-                layer_scenic = self.noise_gen.generate_perlin(
-                    resolution=self.resolution,
-                    scale=100,  # Small scale for detail
-                    octaves=scenic_octaves,  # User-tunable
-                    persistence=0.5,
-                    lacunarity=technical_params['lacunarity'],
-                    show_progress=True,
-                    domain_warp_amp=60.0,
-                    recursive_warp=True,
-                    recursive_warp_strength=scenic_recursive  # User-tunable
+                # Task 2.2: Generate Binary Buildability Mask
+                progress.update(25, "Generating buildability mask...")
+                print(f"[TASK 2.2] Binary buildability mask (target={buildability_target:.1f}%)")
+
+                binary_mask, mask_stats = BuildabilityEnforcer.generate_buildability_mask_from_tectonics(
+                    distance_field=distance_field,
+                    tectonic_elevation=tectonic_elevation,
+                    target_buildable_pct=buildability_target,
+                    verbose=True
                 )
+                print(f"[TASK 2.2] Mask generated: {mask_stats['buildable_pct']:.1f}% buildable zones")
 
-                # Apply height variation to all layers
-                progress.update(55, "Applying height variation...")
-                layer_buildable = TerrainParameterMapper.apply_height_variation(
-                    layer_buildable, technical_params['height_multiplier'])
-                layer_moderate = TerrainParameterMapper.apply_height_variation(
-                    layer_moderate, technical_params['height_multiplier'])
-                layer_scenic = TerrainParameterMapper.apply_height_variation(
-                    layer_scenic, technical_params['height_multiplier'])
+                # Task 2.3: Generate Amplitude Modulated Terrain
+                progress.update(40, "Generating terrain with amplitude modulation...")
+                print(f"[TASK 2.3] Amplitude modulation (buildable={buildable_amplitude:.3f}, scenic={scenic_amplitude:.2f})")
 
-                # Blend layers using quadratic interpolation for smooth transitions
-                # control=1.0 → 100% buildable
-                # control=0.5 → 50% buildable, 25% moderate, 25% scenic
-                # control=0.0 → 100% scenic
-                progress.update(65, "Blending layers with gradient control...")
-                print(f"[STAGE2] Quadratic blending for smooth transitions")
-                control_squared = control_map ** 2
-                control_inv = 1.0 - control_map
-                control_inv_squared = control_inv ** 2
+                raw_terrain, terrain_stats = TectonicStructureGenerator.generate_amplitude_modulated_terrain(
+                    tectonic_elevation=tectonic_elevation,
+                    buildability_mask=binary_mask,
+                    noise_generator=self.noise_gen,
+                    buildable_amplitude=buildable_amplitude,
+                    scenic_amplitude=scenic_amplitude,
+                    noise_octaves=6,  # Single frequency field (no discontinuities)
+                    verbose=True
+                )
+                print(f"[TASK 2.3] Terrain generated: range=[{raw_terrain.min():.3f}, {raw_terrain.max():.3f}]")
 
-                heightmap = (layer_buildable * control_squared +
-                            layer_moderate * 2 * control_map * control_inv +
-                            layer_scenic * control_inv_squared)
-                print(f"[STAGE2] Gradient blending complete")
+                # Priority 6: Buildability Enforcement
+                progress.update(60, "Applying buildability enforcement...")
+                print(f"[PRIORITY 6] Smart blur enforcement (iterations={enforcement_iterations}, sigma={enforcement_sigma:.1f})")
 
-                # Priority 6: Post-processing buildability enforcement
-                # With gradient blending, we start at ~25% buildable, so use moderate smoothing
-                # (vs aggressive sigma=128 needed for binary approach that started at 5%)
-                progress.update(70, "Enforcing buildability constraint...")
-                print(f"[PRIORITY6] Applying moderate buildability enforcement...")
-                # Use sigma=64 (moderate) since gradient approach provides better starting point
-                sigma_scaled = 64 * (self.resolution / 1024)
-                # Use gradient control map as mask (areas >0.5 are "buildable intent")
-                control_mask = (control_map >= 0.5).astype(np.float64)
                 heightmap, enforcement_stats = BuildabilityEnforcer.enforce_buildability_constraint(
-                    heightmap=heightmap,
-                    buildable_mask=control_mask,
+                    heightmap=raw_terrain,
+                    buildable_mask=binary_mask,
                     target_pct=buildability_target,
-                    max_iterations=20,  # Fewer iterations needed
-                    sigma=sigma_scaled,  # Moderate smoothing radius
-                    tolerance=5.0,  # ±5% acceptable deviation
+                    max_iterations=enforcement_iterations,
+                    sigma=enforcement_sigma,
+                    tolerance=5.0,
                     map_size_meters=14336.0,
                     verbose=True
                 )
-                print(f"[PRIORITY6] Enforcement complete: {enforcement_stats['initial_pct']:.1f}% → "
+                print(f"[PRIORITY 6] Enforcement complete: {enforcement_stats['initial_pct']:.1f}% → "
                       f"{enforcement_stats['final_pct']:.1f}% ({enforcement_stats['iterations']} iterations)")
 
                 # Apply erosion if enabled (after buildability enforcement)

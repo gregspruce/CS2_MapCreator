@@ -1,0 +1,2 @@
+Exponential Falloff R²: 1.0000
+Status: PASS

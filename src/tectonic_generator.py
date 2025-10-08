@@ -716,18 +716,30 @@ class TectonicStructureGenerator:
         if verbose:
             print(f"  Combined range (before normalization): [{combined.min():.3f}, {combined.max():.3f}]")
 
-        # Step 6: Normalize to [0, 1]
-        # WHY: Maintain consistent elevation range for further processing
-        # and export to game engine
+        # Step 6: Smart normalization to avoid gradient amplification
+        # WHY: Traditional normalization can amplify gradients when range is small
+        # CRITICAL FIX: If combined terrain is already in reasonable range,
+        # use clipping instead of stretching to avoid gradient amplification
         combined_min = combined.min()
         combined_max = combined.max()
         combined_range = combined_max - combined_min
 
-        if combined_range > 0:
+        # If range is already close to [0, 1], just clip to avoid stretching
+        if combined_min >= -0.1 and combined_max <= 1.1:
+            # Already in good range, clip to [0, 1] without stretching
+            final_terrain = np.clip(combined, 0.0, 1.0)
+            if verbose:
+                print(f"  [SMART NORM] Range acceptable, using clip (no gradient amplification)")
+        elif combined_range > 0:
+            # Range too large or shifted, normalize to [0, 1]
             final_terrain = (combined - combined_min) / combined_range
+            if verbose:
+                print(f"  [SMART NORM] Range requires normalization: [{combined_min:.3f}, {combined_max:.3f}]")
         else:
             # WHY: Handle edge case of perfectly flat terrain (unlikely but possible)
             final_terrain = np.zeros_like(combined)
+            if verbose:
+                print(f"  [SMART NORM] Flat terrain detected")
 
         if verbose:
             print(f"  Final terrain range: [{final_terrain.min():.3f}, {final_terrain.max():.3f}]")
