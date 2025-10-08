@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Critical: GUI Terrain Analysis Slope Calculation (2025-10-08)
+
+#### Problem
+- GUI terrain analysis reported 0% buildability for all terrain
+- Root cause: `TerrainAnalyzer.calculate_slope()` was missing pixel spacing division
+- Sobel gradients were multiplied by height_scale (4096m) but not divided by pixel_size (3.5m)
+- Result: All slopes calculated as ~90 degrees (1170× too large)
+
+#### Solution
+- Added `map_size_meters` parameter to `TerrainAnalyzer.__init__()`
+- Calculate `pixel_size_meters = map_size_meters / resolution` (14336 / 4096 = 3.5m)
+- Fixed slope calculation: `gradient * height_scale / pixel_size_meters`
+- Now matches `BuildabilityEnforcer.calculate_slopes()` methodology
+
+#### Files Modified
+- `src/analysis/terrain_analyzer.py` (lines 32-48, 77-87): Added pixel spacing to slope calculation
+- `src/gui/heightmap_gui.py` (line 1263): Pass map_size_meters parameter
+
+#### Impact
+- GUI terrain analysis now shows accurate buildability percentages
+- Matches backend enforcement statistics
+- Users can now properly evaluate terrain quality
+
 ### Added - Priority 6 Enforcement & GUI Integration (2025-10-08)
 
 #### Feature: Complete Buildability System (Priority 2 + Priority 6)

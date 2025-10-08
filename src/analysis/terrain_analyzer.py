@@ -29,19 +29,23 @@ class TerrainAnalyzer:
     Results are returned as new arrays or dictionaries.
     """
 
-    def __init__(self, heightmap: np.ndarray, height_scale: float = 4096.0):
+    def __init__(self, heightmap: np.ndarray, height_scale: float = 4096.0, map_size_meters: float = 14336.0):
         """
         Initialize terrain analyzer.
 
         Args:
             heightmap: 2D numpy array of elevation values (0.0-1.0)
             height_scale: Real-world height in meters (for slope calculation)
+            map_size_meters: Physical map size in meters (CS2 default: 14336m)
 
         Note: height_scale affects slope angles but not aspect directions.
         """
         self.heightmap = heightmap.copy()
         self.height_scale = height_scale
+        self.map_size_meters = map_size_meters
         self.height, self.width = heightmap.shape
+        # Calculate pixel spacing for slope calculations
+        self.pixel_size_meters = map_size_meters / self.height
 
     def calculate_slope(self, units: str = 'degrees') -> np.ndarray:
         """
@@ -71,12 +75,14 @@ class TerrainAnalyzer:
         Center cell weighted 2x, diagonal neighbors weighted 1x
         """
         # Calculate gradients using Sobel filter
-        # Sobel returns gradient in pixel units, scale by height_scale
-        gradient_y = ndimage.sobel(self.heightmap, axis=0) * self.height_scale
-        gradient_x = ndimage.sobel(self.heightmap, axis=1) * self.height_scale
+        # Sobel returns gradient in pixel units, scale by height_scale and divide by pixel spacing
+        # This gives us meters of height per meter of distance (slope ratio)
+        gradient_y = ndimage.sobel(self.heightmap, axis=0) * self.height_scale / self.pixel_size_meters
+        gradient_x = ndimage.sobel(self.heightmap, axis=1) * self.height_scale / self.pixel_size_meters
 
         # Calculate slope magnitude
         # slope = arctan(sqrt(dz/dx^2 + dz/dy^2))
+        # gradient_magnitude is now in meters per meter (slope ratio)
         gradient_magnitude = np.sqrt(gradient_x**2 + gradient_y**2)
         slope_radians = np.arctan(gradient_magnitude)
 

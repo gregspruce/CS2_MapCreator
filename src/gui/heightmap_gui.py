@@ -1260,7 +1260,7 @@ class HeightmapGUI(tk.Tk):
 
         try:
             # Create analyzer
-            analyzer = TerrainAnalyzer(self.heightmap, height_scale=4096.0)
+            analyzer = TerrainAnalyzer(self.heightmap, height_scale=4096.0, map_size_meters=14336.0)
 
             # Get statistics
             stats = analyzer.get_statistics()
