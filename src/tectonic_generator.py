@@ -16,7 +16,7 @@ Created: 2025-10-07
 Author: CS2 Map Generator Project
 """
 
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 import numpy as np
 from scipy.interpolate import splprep, splev
 from scipy.ndimage import distance_transform_edt
@@ -559,3 +559,197 @@ class TectonicStructureGenerator:
         elevation = self.apply_uplift_profile(distance_field, max_uplift, falloff_meters)
 
         return elevation.astype(np.float32)
+
+    @staticmethod
+    def generate_amplitude_modulated_terrain(
+        tectonic_elevation: np.ndarray,
+        buildability_mask: np.ndarray,
+        noise_generator,  # NoiseGenerator instance
+        buildable_amplitude: float = 0.3,
+        scenic_amplitude: float = 1.0,
+        noise_octaves: int = 6,
+        noise_persistence: float = 0.5,
+        verbose: bool = True
+    ) -> Tuple[np.ndarray, Dict]:
+        """
+        Generate terrain using amplitude modulation (Task 2.3).
+
+        WHY THIS APPROACH:
+        Uses SINGLE noise field with SAME octaves everywhere. Only amplitude
+        varies (0.3 in buildable zones, 1.0 in scenic zones). This prevents
+        frequency discontinuities that destroyed the gradient control map system.
+
+        CRITICAL CONTEXT:
+        The gradient control map approach failed catastrophically (3.4% buildable
+        vs 50% target, 6x more jagged) because it blended 2-octave, 5-octave,
+        and 7-octave noise, creating frequency discontinuities at zone boundaries.
+        This method uses SAME frequency content everywhere, varying only the
+        amplitude of that content.
+
+        ALGORITHM:
+        1. Generate single Perlin noise field (6 octaves by default)
+        2. Center noise around 0 (convert from [0,1] to [-1,1])
+        3. Create amplitude modulation map (0.3 buildable, 1.0 scenic)
+        4. Multiply noise by amplitude map (modulate amplitude, not frequency)
+        5. Add modulated noise to tectonic base structure
+        6. Normalize result to [0,1]
+
+        Args:
+            tectonic_elevation: Base structure from Task 2.1 (0-1 normalized)
+            buildability_mask: Binary mask from Task 2.2 (1=buildable, 0=scenic)
+            noise_generator: NoiseGenerator instance for Perlin generation
+            buildable_amplitude: Amplitude for buildable zones (default: 0.3)
+            scenic_amplitude: Amplitude for scenic zones (default: 1.0)
+            noise_octaves: Octaves for noise (SAME everywhere, default: 6)
+            noise_persistence: Persistence for noise (SAME everywhere, default: 0.5)
+            verbose: Print progress messages
+
+        Returns:
+            Tuple of (final_terrain, stats_dict)
+            - final_terrain: Combined terrain (0-1 normalized)
+            - stats_dict: Statistics about the generation including:
+                - buildable_amplitude_mean: Mean absolute amplitude in buildable zones
+                - scenic_amplitude_mean: Mean absolute amplitude in scenic zones
+                - amplitude_ratio: Ratio of scenic/buildable amplitudes (~3.33)
+                - final_range: (min, max) of final terrain
+                - noise_octaves_used: Octaves used (confirmation)
+                - single_frequency_field: True (confirms no multi-octave blending)
+
+        DESIGN RATIONALE:
+        - Single noise field: Ensures frequency continuity across all zones
+        - Amplitude modulation only: Varies intensity, not character of terrain
+        - 0.3 vs 1.0 ratio: 3.33x amplitude difference creates distinct zones
+          while maintaining same frequency content (smooth transitions)
+        - Octave consistency: Same octaves everywhere prevents jagged boundaries
+
+        VALIDATION:
+        Method validates inputs before processing:
+        - Shapes must match between tectonic_elevation and buildability_mask
+        - Mask must be binary (only 0 and 1 values)
+        - Amplitudes must be positive
+        - Octaves must be >= 1
+        """
+        # Validate inputs
+        # WHY: Catch configuration errors early with clear error messages
+        if tectonic_elevation.shape != buildability_mask.shape:
+            raise ValueError(
+                f"Shape mismatch: tectonic_elevation {tectonic_elevation.shape} "
+                f"vs buildability_mask {buildability_mask.shape}"
+            )
+
+        if not np.all(np.isin(buildability_mask, [0, 1])):
+            raise ValueError("buildability_mask must be binary (only 0 and 1 values)")
+
+        if buildable_amplitude <= 0 or scenic_amplitude <= 0:
+            raise ValueError(
+                f"Amplitudes must be positive: buildable={buildable_amplitude}, "
+                f"scenic={scenic_amplitude}"
+            )
+
+        if noise_octaves < 1:
+            raise ValueError(f"noise_octaves must be >= 1, got {noise_octaves}")
+
+        resolution = tectonic_elevation.shape[0]
+
+        if verbose:
+            print(f"\n[Task 2.3: Amplitude Modulated Terrain Generation]")
+            print(f"  Resolution: {resolution}x{resolution}")
+            print(f"  Noise octaves (SAME everywhere): {noise_octaves}")
+            print(f"  Noise persistence: {noise_persistence}")
+            print(f"  Buildable amplitude: {buildable_amplitude}")
+            print(f"  Scenic amplitude: {scenic_amplitude}")
+            print(f"  Amplitude ratio: {scenic_amplitude/buildable_amplitude:.2f}")
+
+        # Step 1: Generate single Perlin noise field
+        # WHY: One noise field with consistent octaves everywhere prevents
+        # frequency discontinuities that plagued the gradient system
+        if verbose:
+            print(f"  Generating single Perlin noise field...")
+
+        base_noise = noise_generator.generate_perlin(
+            resolution=resolution,
+            octaves=noise_octaves,
+            persistence=noise_persistence,
+            scale=200.0  # Reasonable scale for terrain detail
+        )
+
+        # Step 2: Center noise around 0
+        # WHY: Perlin returns [0, 1], but we need signed values for symmetric
+        # modulation (both positive and negative variations from base elevation)
+        noise_centered = (base_noise - 0.5) * 2.0
+
+        if verbose:
+            print(f"  Noise range (centered): [{noise_centered.min():.3f}, {noise_centered.max():.3f}]")
+
+        # Step 3: Create amplitude modulation map
+        # WHY: Binary mask defines where to apply different amplitudes
+        # buildability_mask: 1 = buildable (low amplitude), 0 = scenic (high amplitude)
+        amplitude_map = np.where(
+            buildability_mask == 1,
+            buildable_amplitude,
+            scenic_amplitude
+        )
+
+        # Step 4: Apply amplitude modulation
+        # WHY: Multiply noise by amplitude map to scale noise intensity
+        # This modulates AMPLITUDE only, not frequency content
+        modulated_noise = noise_centered * amplitude_map
+
+        # Calculate statistics for buildable and scenic zones
+        # WHY: Verify amplitude modulation is working as expected
+        buildable_indices = buildability_mask == 1
+        scenic_indices = buildability_mask == 0
+
+        buildable_amplitude_mean = np.mean(np.abs(modulated_noise[buildable_indices]))
+        scenic_amplitude_mean = np.mean(np.abs(modulated_noise[scenic_indices]))
+
+        if verbose:
+            print(f"  Buildable zone amplitude (mean absolute): {buildable_amplitude_mean:.3f}")
+            print(f"  Scenic zone amplitude (mean absolute): {scenic_amplitude_mean:.3f}")
+            print(f"  Measured amplitude ratio: {scenic_amplitude_mean/buildable_amplitude_mean:.2f}")
+
+        # Step 5: Combine with tectonic base
+        # WHY: Tectonic structure provides the large-scale form,
+        # modulated noise adds appropriate detail level per zone
+        combined = tectonic_elevation + modulated_noise
+
+        if verbose:
+            print(f"  Combined range (before normalization): [{combined.min():.3f}, {combined.max():.3f}]")
+
+        # Step 6: Normalize to [0, 1]
+        # WHY: Maintain consistent elevation range for further processing
+        # and export to game engine
+        combined_min = combined.min()
+        combined_max = combined.max()
+        combined_range = combined_max - combined_min
+
+        if combined_range > 0:
+            final_terrain = (combined - combined_min) / combined_range
+        else:
+            # WHY: Handle edge case of perfectly flat terrain (unlikely but possible)
+            final_terrain = np.zeros_like(combined)
+
+        if verbose:
+            print(f"  Final terrain range: [{final_terrain.min():.3f}, {final_terrain.max():.3f}]")
+
+        # Step 7: Calculate comprehensive statistics
+        # WHY: Provide verification that method is working correctly
+        # and enable debugging if results are unexpected
+        stats = {
+            'buildable_amplitude_mean': float(buildable_amplitude_mean),
+            'scenic_amplitude_mean': float(scenic_amplitude_mean),
+            'amplitude_ratio': float(scenic_amplitude_mean / buildable_amplitude_mean),
+            'final_range': (float(final_terrain.min()), float(final_terrain.max())),
+            'noise_octaves_used': noise_octaves,
+            'single_frequency_field': True,  # Confirms no multi-octave blending
+            'buildable_pixels': int(np.sum(buildable_indices)),
+            'scenic_pixels': int(np.sum(scenic_indices)),
+            'buildable_percentage': float(100 * np.sum(buildable_indices) / buildable_indices.size),
+        }
+
+        if verbose:
+            print(f"  Buildable pixels: {stats['buildable_pixels']:,} ({stats['buildable_percentage']:.1f}%)")
+            print(f"  Scenic pixels: {stats['scenic_pixels']:,}")
+            print(f"  [Task 2.3 Complete]")
+
+        return final_terrain.astype(np.float32), stats
