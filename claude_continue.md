@@ -1,26 +1,53 @@
 # Claude Continuation Context
 
-**Last Updated**: 2025-10-08 07:08:36
+**Last Updated**: 2025-10-08 (Post-Bugfix)
 **Current Version**: 2.4.4 (unreleased)
 **Branch**: `main`
-**Status**: ✅ Priority 2+6 System COMPLETE & GUI INTEGRATED - Ready for User Testing
+**Status**: ✅ Priority 2+6 System COMPLETE & GUI TERRAIN ANALYSIS FIXED - Ready for User Testing
 
 ---
 
-## 🎯 CURRENT STATE (2025-10-08 07:08)
+## 🚨 CRITICAL BUGFIX (2025-10-08 - Just Fixed!)
+
+### GUI Terrain Analysis Slope Calculation Fixed
+
+**User Report**: GUI terrain analysis showed 0% buildability, but terminal output showed convergence to target.
+
+**Root Cause Found**:
+- `TerrainAnalyzer.calculate_slope()` was missing pixel spacing division
+- Slopes calculated as ~1170× too large (all showed ~90 degrees)
+- Formula was: `gradient * 4096` instead of `gradient * 4096 / 3.5`
+
+**Fix Applied**:
+- Added `map_size_meters` parameter to `TerrainAnalyzer`
+- Calculate `pixel_size_meters = 14336 / 4096 = 3.5 meters`
+- Fixed slope formula to match `BuildabilityEnforcer` methodology
+- **Commit**: `3bddd54` - Pushed to main
+
+**Files Fixed**:
+- `src/analysis/terrain_analyzer.py` (lines 32-48, 77-87)
+- `src/gui/heightmap_gui.py` (line 1263)
+
+**Impact**: GUI terrain analysis now shows accurate buildability matching backend statistics!
+
+---
+
+## 🎯 CURRENT STATE (2025-10-08)
 
 ### What Just Happened (This Session - 6+ hours)
 
 **Priority 6 Application & GUI Integration - COMPLETE ✅**
+**Critical Bugfix - GUI Terrain Analysis - FIXED ✅**
 
 **Session Flow**:
 1. **Started**: User requested Priority 6 enforcement application
 2. **Discovered**: GUI completely out of date (using failed 3.4% system)
-3. **Critical Fix**: Implemented smart normalization to prevent gradient amplification
+3. **Critical Fix #1**: Implemented smart normalization to prevent gradient amplification
 4. **Testing**: Ran 6 parameter combinations, found best result (18.5% buildable)
 5. **GUI Overhaul**: Replaced failed gradient system with Priority 2+6 controls
 6. **Documentation**: Comprehensive findings and analysis documents created
-7. **Result**: Complete buildability system ready for user testing
+7. **Critical Fix #2**: Fixed GUI terrain analysis slope calculation (0% → accurate)
+8. **Result**: Complete buildability system ready for user testing
 
 ### System Status
 
