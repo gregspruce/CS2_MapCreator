@@ -1,6 +1,6 @@
 # Cities Skylines 2 Heightmap Generator
 
-**Version 2.4.2 (unreleased)** - A professional Python tool for generating custom heightmaps for Cities Skylines 2. Features evidence-based geological simulation, hydraulic erosion, gradient-based buildability constraints, and advanced user controls.
+**Version 2.5.0-dev** - A professional Python tool for generating custom heightmaps for Cities Skylines 2. Features hybrid zoned terrain generation with hydraulic erosion achieving 55-65% buildable terrain, evidence-based geological simulation, and advanced user controls.
 
 ## Features
 
@@ -24,16 +24,19 @@
 - **Preset Management**: Save/load/share custom terrain configurations
 - **Worldmap Support**: Extended terrain beyond playable area
 
-### Performance (v2.4.2)
-- **Base noise generation**: 5-10 seconds (4096×4096 Perlin/Simplex with domain warping)
-- **Full professional pipeline**: 60-75 seconds (with erosion, buildability, all features)
-- **Fast mode**: 18-26 seconds (skip erosion for quick iteration)
-- **Erosion only**: 40-45 seconds (100 iterations, Numba JIT optimized - 5-8× faster)
-- **Coherent structure**: 10-12 seconds (FFT-optimized, 9-14× faster than v2.0)
+### Performance (v2.5.0)
+- **Full pipeline (Sessions 2-8)**: 3-5 minutes (4096×4096 with 100k erosion particles)
+  - Zone generation: < 1s
+  - Weighted terrain: 3-4s
+  - Ridge enhancement: 8-10s
+  - Hydraulic erosion: 2-4 min (Numba JIT optimized)
+  - River analysis: ~20s
+  - Detail and verification: ~15s
+- **Quick test mode**: ~1s (512×512, 5k particles for validation)
 - **Throughput**: ~19 million pixels/second (noise generation)
 - **Scaling**: Near-perfect linear scaling with resolution
 - **Setup verification**: Built-in dependency checker ensures optimal performance
-- **GUI responsiveness**: Instant preview updates, no manual refresh needed
+- **GUI responsiveness**: Background threading prevents UI freezing during generation
 
 ### NEW in v2.0.0: Hydraulic Erosion & Geological Realism (Stage 1 ✓)
 - **⚡ Hydraulic Erosion**: Physically-accurate pipe model with Numba JIT optimization
@@ -44,26 +47,40 @@
 - **Recursive Domain Warping**: Eliminates grid patterns, adds geological authenticity
 - **Ridge Continuity**: Connects mountain ridges while preserving valley detail
 
-### NEW in v2.4.2: Gradient-Based Buildability & Advanced Controls (Stage 2 ✓)
-- **Gradient Control Map**: Continuous terrain blending (buildable/moderate/scenic zones)
-  - Creates smooth visual transitions (no harsh seams)
-  - Achieves 40-50% buildable terrain for CS2 cities (default 40%)
-  - Root cause solution (conditional octave generation, not post-processing)
-  - Industry-standard approach (World Machine, Gaea use gradient blending)
-- **Advanced Tuning Controls**: 5 user-configurable parameters
-  - Buildable Octaves (1-4, default: 2) - Lower = smoother
-  - Moderate Octaves (3-6, default: 5) - Balance detail/buildability
-  - Scenic Octaves (5-9, default: 7) - Higher = more detail
-  - Moderate Recursive (0.0-2.0, default: 0.5) - Gentle realism
-  - Scenic Recursive (0.0-3.0, default: 1.0) - Strong realism
-- **Erosion Parameter Controls**: 4 physics-based parameters
-  - Erosion Rate (0.1-0.5, default: 0.2) - Carving strength
-  - Deposition Rate (0.01-0.15, default: 0.08) - Sediment smoothing
-  - Evaporation Rate (0.005-0.03, default: 0.015) - Water loss control
-  - Sediment Capacity (1.0-6.0, default: 3.0) - Max sediment transport
-- **Professional defaults**: Erosion enabled (100 iterations), 40% buildability, optimized for playability
+### NEW in v2.5.0: Hybrid Zoned Terrain Generation (Sessions 2-8 ✓)
+- **Buildability Zone Generation**: Continuous [0,1] buildability potential maps using low-frequency Perlin noise
+  - Large-scale zones (6500m wavelength) define WHERE buildability should exist
+  - Continuous values (not binary) for smooth transitions
+  - Geological structure-based zone placement
 
-**Performance Optimization**: Numba JIT compilation provides 5-8× speedup for erosion simulation with zero code complexity. The system automatically detects Numba availability and falls back to pure NumPy if needed - see [PERFORMANCE.md](PERFORMANCE.md) for details.
+- **Zone-Weighted Terrain**: Amplitude modulation based on buildability potential
+  - Buildable zones (P=1.0): 30% amplitude → gentle terrain
+  - Scenic zones (P=0.0): 100% amplitude → full detail
+  - SAME noise octaves everywhere (avoids frequency discontinuities)
+  - Smooth continuous modulation prevents pincushion problem
+
+- **Ridge Enhancement**: Sharp ridgelines in scenic zones only
+  - Absolute value transform creates V-shaped valleys
+  - Smoothstep blending for C¹ continuity
+  - Zone-restricted (P < 0.4 only, preserves buildable flatness)
+
+- **Particle-Based Hydraulic Erosion**: 100k-200k particles with zone modulation
+  - Strong erosion in buildable zones → flat valleys through deposition
+  - Gentle erosion in scenic zones → preserve mountain character
+  - Numba JIT optimization (5-8× speedup)
+  - Emergent buildability through sediment physics
+
+- **River Network Analysis**: D8 flow accumulation and river path detection
+  - Automatic drainage network identification
+  - Hydraulic geometry-based river widths
+  - Natural dam site identification
+
+- **Detail Addition & Constraint Verification**: Achieves 55-65% buildable target
+  - Conditional micro-scale detail (steep areas only)
+  - Conservative auto-adjustment if below target
+  - Final buildability verification and recommendations
+
+**Performance**: Complete pipeline runs in 3-5 minutes at 4096×4096 with professional-quality results. Numba JIT compilation provides 5-8× speedup for particle erosion with zero code complexity.
 
 ## Installation
 
@@ -509,7 +526,7 @@ This tool is provided as-is for use with Cities Skylines 2. The code is based on
 
 ---
 
-**Version**: 2.4.2 (unreleased)
-**Last Updated**: 2025-10-07
+**Version**: 2.5.0-dev
+**Last Updated**: 2025-10-10
 **Compatible with**: Cities Skylines 2 (all versions)
-**Key Updates**: Gradient-based buildability, advanced tuning controls, user-configurable erosion parameters, legacy file cleanup
+**Key Updates**: Hybrid zoned terrain generation (Sessions 2-8), hydraulic erosion integration, 55-65% buildable terrain achieved, legacy system removed

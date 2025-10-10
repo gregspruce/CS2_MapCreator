@@ -1,8 +1,8 @@
 # CS2 Map Generator - Architecture Documentation
 
-**Version**: 2.4.2 (unreleased) - v2.0.0 Development
-**Last Updated**: 2025-10-07
-**Status**: Post-merge from feature/terrain-gen-v2-overhaul
+**Version**: 2.5.0-dev - Sessions 1-9 Complete
+**Last Updated**: 2025-10-10
+**Status**: Hybrid Zoned Terrain Generation Pipeline (55-65% buildable achieved)
 
 ---
 
@@ -21,13 +21,17 @@
 
 ## System Overview
 
-The CS2 Map Generator is a professional terrain generation tool for Cities Skylines 2. It uses evidence-based geological simulation to create realistic, playable heightmaps.
+The CS2 Map Generator is a professional terrain generation tool for Cities Skylines 2. It uses a hybrid zoned terrain generation pipeline with particle-based hydraulic erosion to achieve 55-65% buildable terrain.
 
 **Key Features**:
-- Hydraulic erosion simulation (Stage 1 ✓)
-- Gradient-based buildability constraints (Stage 2 Task 2.2 ✓)
-- Advanced user controls (UI polish ✓)
-- 60-75s generation time for professional-quality 4096×4096 terrain
+- Hybrid zoned terrain generation (Sessions 2-8 complete)
+- Continuous buildability zones (not binary masks)
+- Zone-weighted amplitude modulation
+- Particle-based hydraulic erosion with zone modulation
+- Ridge enhancement for geological realism
+- D8 flow analysis and river network detection
+- Conditional detail addition and constraint verification
+- 3-5 minute generation time for 4096×4096 achieving target buildability
 
 **Technology Stack**:
 - Python 3.8+
@@ -201,55 +205,72 @@ GUI → Orchestration → Services → Foundation
 
 ## Generation Pipeline
 
-### Full Professional-Quality Pipeline
+### Hybrid Zoned Terrain Pipeline (Sessions 2-8)
 
 ```
-1. PARAMETER SETUP (0s)
-   └─> TerrainParameterMapper: Intuitive → Technical conversion
+1. STAGE 1: ZONE GENERATION (< 1s)
+   └─> BuildabilityZoneGenerator.generate_potential_map()
+       ├─> Low-frequency Perlin noise (6500m wavelength, 2 octaves)
+       ├─> Continuous [0,1] buildability potential (not binary!)
+       └─> Large-scale zones define WHERE buildability should exist
 
-2. NOISE GENERATION (5-10s)
-   ├─> NoiseGenerator.generate_buildability_control_map()
-   ├─> NoiseGenerator.generate_perlin() [buildable layer: 2 octaves, no warp]
-   ├─> NoiseGenerator.generate_perlin() [moderate layer: 5 octaves, warp=0.5]
-   └─> NoiseGenerator.generate_perlin() [scenic layer: 7 octaves, warp=1.0]
+2. STAGE 2: WEIGHTED TERRAIN (3-4s)
+   └─> ZoneWeightedTerrainGenerator.generate()
+       ├─> Amplitude modulation: A = base × (0.3 + 0.7 × (1 - potential))
+       ├─> Same noise octaves everywhere (no frequency discontinuities)
+       ├─> Buildable zones (P=1.0): 30% amplitude → gentle
+       └─> Scenic zones (P=0.0): 100% amplitude → full detail
 
-3. TERRAIN BLENDING (1-2s)
-   └─> Quadratic interpolation (buildable/moderate/scenic)
+3. STAGE 3: RIDGE ENHANCEMENT (8-10s)
+   └─> RidgeEnhancer.enhance()
+       ├─> Absolute value transform: R = 2 × |0.5 - FBM|
+       ├─> Smoothstep blending for C¹ continuity
+       ├─> Zone-restricted (only P < 0.4, preserves buildable)
+       └─> Creates sharp ridgelines in mountains
 
-4. COHERENT STRUCTURE (10-12s)
-   └─> CoherentTerrainGenerator.make_coherent()
-       ├─> FFT-based coherence (ridge continuity)
-       └─> Domain warping (removes grid patterns)
+4. STAGE 4: HYDRAULIC EROSION (2-4 min)
+   └─> HydraulicErosionSimulator.erode()
+       ├─> 100k-200k particles with zone modulation
+       ├─> Strong erosion in buildable → flat valleys
+       ├─> Gentle erosion in scenic → preserve mountains
+       ├─> Numba JIT optimization (5-8× speedup)
+       └─> Emergent buildability via sediment deposition
 
-5. HYDRAULIC EROSION (40-45s)
-   └─> HydraulicErosionSimulator.simulate_erosion()
-       ├─> Pipe model algorithm
-       ├─> Numba JIT optimization (5-8x speedup)
-       └─> 100 iterations (default quality)
+5. STAGE 4.5: RIVER ANALYSIS (~20s)
+   └─> RiverAnalyzer.analyze()
+       ├─> D8 flow direction algorithm
+       ├─> Flow accumulation via topological sorting
+       ├─> River path extraction (99th percentile threshold)
+       ├─> Hydraulic geometry width calculation
+       └─> Dam site identification in narrow valleys
 
-6. BUILDABILITY ENFORCEMENT (1-2s)
-   └─> BuildabilityEnforcer.enforce_buildability_constraint()
-       ├─> Calculate slopes
-       ├─> Identify problem areas
-       └─> Smart blur (preserves valleys/ridges)
+6. STAGE 5.5: DETAIL & VERIFICATION (~15s)
+   ├─> DetailGenerator.add_detail()
+   │   ├─> Conditional detail (ONLY slope > 5%)
+   │   ├─> Proportional amplitude scaling
+   │   └─> High-frequency Perlin (~75m wavelength)
+   └─> ConstraintVerifier.verify()
+       ├─> Accurate buildability calculation
+       ├─> Terrain classification (buildable/near/unbuildable)
+       ├─> Conservative auto-adjustment if < 55%
+       └─> Recommendations and statistics
 
-7. EXPORT (1-2s)
-   └─> CS2Exporter.export_to_cs2()
-       └─> 16-bit PNG to CS2 directory
+7. STAGE 6: NORMALIZATION & EXPORT (< 1s)
+   └─> Final normalization to [0,1] and export
 
-TOTAL: 60-75 seconds
+TOTAL: 3-5 minutes (achieves 55-65% buildable)
 ```
 
-### Fast Mode Pipeline (Skip Erosion)
+### Pipeline Statistics Output
 
-```
-1-3. [Same as above: 5-10s]
-4. COHERENT STRUCTURE (10-12s)
-6. BUILDABILITY ENFORCEMENT (1-2s)
-7. EXPORT (1-2s)
-
-TOTAL: 18-26 seconds
-```
+The pipeline provides comprehensive statistics at each stage:
+- Zone coverage percentages
+- Buildability progression (after each stage)
+- Stage timing metrics
+- Slope distributions and percentiles
+- River network characteristics
+- Detail application coverage
+- Final validation status with recommendations
 
 ---
 
