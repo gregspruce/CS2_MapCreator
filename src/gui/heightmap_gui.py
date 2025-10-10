@@ -573,13 +573,13 @@ class HeightmapGUI(tk.Tk):
         Args:
             intuitive_params: Parameter dictionary from parameter panel
         """
-        # Create progress dialog
+        # Create progress dialog (only accepts parent and title)
         progress_dialog = ProgressDialog(
             self,
-            title="Generating Terrain (Pipeline)",
-            message="Initializing pipeline...",
-            cancelable=False
+            title="Generating Terrain (Pipeline)"
         )
+        # Initial status message
+        progress_dialog.update(0, "Initializing pipeline...")
 
         def generate_in_background():
             """Run pipeline generation in background thread."""
@@ -659,8 +659,7 @@ class HeightmapGUI(tk.Tk):
         thread = threading.Thread(target=generate_in_background, daemon=True)
         thread.start()
 
-        # Show progress dialog (blocks until closed)
-        progress_dialog.show()
+        # Note: ProgressDialog shows automatically when created (Toplevel window)
 
     def _on_pipeline_complete(self, terrain: np.ndarray, stats: dict, progress_dialog: ProgressDialog):
         """
@@ -695,6 +694,28 @@ class HeightmapGUI(tk.Tk):
         self.set_status(f"Pipeline complete: {final_buildable:.1f}% buildable in {total_time:.1f}s")
 
         print(f"[GUI] Pipeline generation complete: {final_buildable:.1f}% buildable")
+
+    def _on_generation_error(self, error_message: str, progress_dialog: ProgressDialog):
+        """
+        Called when generation fails (on main thread).
+
+        Args:
+            error_message: Error message to display
+            progress_dialog: Progress dialog to close
+        """
+        progress_dialog.close()
+
+        # Show error dialog
+        messagebox.showerror(
+            "Generation Error",
+            f"Terrain generation failed:\n\n{error_message}\n\n"
+            f"Please check the console for details."
+        )
+
+        # Update status
+        self.set_status("Generation failed")
+
+        print(f"[GUI] Generation error: {error_message}")
 
     def zoom_in(self):
         """Zoom in on the preview."""
@@ -824,13 +845,13 @@ class HeightmapGUI(tk.Tk):
         ):
             return
 
-        # Create progress dialog
+        # Create progress dialog (only accepts parent and title)
         progress_dialog = ProgressDialog(
             self,
-            title="Generating Worldmap",
-            message=f"Generating worldmap with embedded playable area...\nThis may take 1-2 minutes.",
-            cancelable=False
+            title="Generating Worldmap"
         )
+        # Initial status message
+        progress_dialog.update(0, "Generating worldmap with embedded playable area...\nThis may take 1-2 minutes.")
 
         def generate_worldmap_in_background():
             """Run worldmap generation in background thread."""
@@ -855,8 +876,7 @@ class HeightmapGUI(tk.Tk):
         thread = threading.Thread(target=generate_worldmap_in_background, daemon=True)
         thread.start()
 
-        # Show progress dialog
-        progress_dialog.show()
+        # Note: ProgressDialog shows automatically when created (Toplevel window)
 
     def _on_worldmap_complete(self, worldmap_gen, progress_dialog: ProgressDialog):
         """Called when worldmap generation completes."""
