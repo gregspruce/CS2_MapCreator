@@ -110,6 +110,24 @@ class TerrainGenerationPipeline:
             map_size_meters=map_size_meters
         )
 
+    def _normalize_terrain(self, terrain: np.ndarray) -> np.ndarray:
+        """
+        Normalize terrain to [0, 1] range.
+
+        This ensures consistent range across all pipeline stages,
+        preventing amplitude mismatches between stages.
+
+        Args:
+            terrain: Input terrain array
+
+        Returns:
+            Normalized terrain in [0, 1] range
+        """
+        terrain_min, terrain_max = terrain.min(), terrain.max()
+        if terrain_max > terrain_min:
+            terrain = (terrain - terrain_min) / (terrain_max - terrain_min)
+        return np.clip(terrain, 0.0, 1.0).astype(np.float32)
+
     def generate(self,
                  # Zone generation parameters (Session 2)
                  target_coverage: float = 0.70,
@@ -262,9 +280,13 @@ class TerrainGenerationPipeline:
         )
         stage2_time = time.time() - stage2_start
 
+        # Normalize terrain to [0, 1] after weighted generation
+        terrain = self._normalize_terrain(terrain)
+
         if verbose:
             print(f"\n[STAGE 2 COMPLETE] Time: {stage2_time:.2f}s")
             print(f"  Buildability before erosion: {terrain_stats['buildable_percent']:.1f}%")
+            print(f"  Terrain normalized to [0, 1] range")
 
         # ====================================================================
         # STAGE 3: Apply Ridge Enhancement (Session 5) [OPTIONAL]
@@ -286,9 +308,13 @@ class TerrainGenerationPipeline:
             )
             stage3_time = time.time() - stage3_start
 
+            # Normalize terrain to [0, 1] after ridge enhancement
+            terrain = self._normalize_terrain(terrain)
+
             if verbose:
                 print(f"\n[STAGE 3 COMPLETE] Time: {stage3_time:.2f}s")
                 print(f"  Ridge coverage: {ridge_stats['ridge_coverage_pct']:.1f}%")
+                print(f"  Terrain normalized to [0, 1] range")
         else:
             stage3_time = 0.0
             ridge_stats = {'skipped': True}
@@ -315,9 +341,13 @@ class TerrainGenerationPipeline:
             )
             stage4_time = time.time() - stage4_start
 
+            # Normalize terrain to [0, 1] after erosion
+            terrain = self._normalize_terrain(terrain)
+
             if verbose:
                 print(f"\n[STAGE 4 COMPLETE] Time: {stage4_time:.2f}s")
                 print(f"  Buildability improvement: +{erosion_stats['improvement_pct']:.1f}%")
+                print(f"  Terrain normalized to [0, 1] range")
         else:
             stage4_time = 0.0
             erosion_stats = {'skipped': True}
@@ -408,13 +438,11 @@ class TerrainGenerationPipeline:
 
         stage6_start = time.time()
 
-        # Ensure final terrain is in [0, 1] range
-        terrain_min, terrain_max = terrain.min(), terrain.max()
-        if terrain_max > terrain_min:
-            terrain = (terrain - terrain_min) / (terrain_max - terrain_min)
+        # Safety check: Ensure final terrain is in [0, 1] range
+        # (Should already be normalized from previous stages)
         terrain = np.clip(terrain, 0.0, 1.0).astype(np.float32)
 
-        # Calculate final buildability (after normalization)
+        # Calculate final buildability
         final_slopes = BuildabilityEnforcer.calculate_slopes(
             terrain, self.map_size_meters
         )
