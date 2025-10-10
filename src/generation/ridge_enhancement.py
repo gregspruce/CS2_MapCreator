@@ -165,28 +165,28 @@ class RidgeEnhancer:
                 - Lower: Subtle ridges
                 - Higher: Dramatic ridgelines
             blend_edge0: Start of transition zone (0.15-0.25, default 0.2)
-                - Below this P value: Full ridges (α = 1)
+                - Below this P value: Full ridges (alpha = 1)
             blend_edge1: End of transition zone (0.35-0.45, default 0.4)
-                - Above this P value: No ridges (α = 0)
+                - Above this P value: No ridges (alpha = 0)
             verbose: Print progress messages
 
         Returns:
             Tuple of (enhanced_terrain, statistics_dict)
 
         Mathematical Formula:
-            α(x,y) = smoothstep(edge0, edge1, 1 - P(x,y))
-            T_final(x,y) = T(x,y) + α(x,y) × R(x,y) × ridge_strength
+            alpha(x,y) = smoothstep(edge0, edge1, 1 - P(x,y))
+            T_final(x,y) = T(x,y) + alpha(x,y) x R(x,y) x ridge_strength
 
         Where:
             - P(x,y) = Buildability potential from Session 2
             - R(x,y) = Ridge noise (absolute value of FBM)
-            - α(x,y) = Blending factor [0, 1]
+            - alpha(x,y) = Blending factor [0, 1]
             - T(x,y) = Input terrain
 
         Application Zones:
-            - P > 0.4: No ridges (buildable zones, α ≈ 0)
-            - 0.2 < P < 0.4: Smooth transition (α increases 0 → 1)
-            - P < 0.2: Full ridges (scenic zones, α ≈ 1)
+            - P > 0.4: No ridges (buildable zones, alpha ~= 0)
+            - 0.2 < P < 0.4: Smooth transition (alpha increases 0 -> 1)
+            - P < 0.2: Full ridges (scenic zones, alpha ~= 1)
         """
         start_time = time.time()
 
@@ -243,9 +243,9 @@ class RidgeEnhancer:
         inverse_potential = 1.0 - buildability_potential
 
         # Apply smoothstep for smooth transition
-        # α = 0 for P > blend_edge1 (buildable zones)
-        # α = 1 for P < blend_edge0 (scenic zones)
-        # α smoothly transitions between edge0 and edge1
+        # alpha = 0 for P > blend_edge1 (buildable zones)
+        # alpha = 1 for P < blend_edge0 (scenic zones)
+        # alpha smoothly transitions between edge0 and edge1
         alpha = self._smoothstep(blend_edge0, blend_edge1, inverse_potential)
 
         if verbose:
@@ -253,16 +253,16 @@ class RidgeEnhancer:
             full_ridge_coverage = 100.0 * np.sum(alpha > 0.9) / alpha.size
             transition_coverage = 100.0 * np.sum((alpha > 0.1) & (alpha < 0.9)) / alpha.size
 
-            print(f"  Ridge blending factor (α) range: [{alpha.min():.4f}, {alpha.max():.4f}]")
-            print(f"  Ridge coverage (α > 0.1): {ridge_coverage:.1f}%")
-            print(f"  Full ridge zones (α > 0.9): {full_ridge_coverage:.1f}%")
-            print(f"  Transition zones (0.1 < α < 0.9): {transition_coverage:.1f}%")
+            print(f"  Ridge blending factor (alpha) range: [{alpha.min():.4f}, {alpha.max():.4f}]")
+            print(f"  Ridge coverage (alpha > 0.1): {ridge_coverage:.1f}%")
+            print(f"  Full ridge zones (alpha > 0.9): {full_ridge_coverage:.1f}%")
+            print(f"  Transition zones (0.1 < alpha < 0.9): {transition_coverage:.1f}%")
 
         # Step 3: Apply blended ridges
         if verbose:
             print(f"\n[STEP 3] Applying blended ridge enhancement...")
 
-        # T_final = T + α × R × strength
+        # T_final = T + alpha x R x strength
         enhanced_terrain = terrain + alpha * ridge_noise * ridge_strength
 
         # Clip to valid range [0, 1]
@@ -342,13 +342,13 @@ class RidgeEnhancer:
             performance_ok = elapsed_time < 10.0
 
             print(f"\n  Validation:")
-            print(f"    ✅ Buildable zones preserved: {buildable_unchanged}")
-            print(f"    ✅ Scenic zones enhanced: {scenic_enhanced}")
-            print(f"    ✅ Performance < 10s: {performance_ok}")
+            print(f"    [OK] Buildable zones preserved: {buildable_unchanged}")
+            print(f"    [OK] Scenic zones enhanced: {scenic_enhanced}")
+            print(f"    [OK] Performance < 10s: {performance_ok}")
 
             if buildable_unchanged and scenic_enhanced and performance_ok:
-                print(f"  Status: ✅ SUCCESS - Ridge enhancement working correctly")
+                print(f"  Status: [SUCCESS] Ridge enhancement working correctly")
             else:
-                print(f"  Status: ⚠️  WARNING - Check validation criteria")
+                print(f"  Status: [WARNING] Check validation criteria")
 
         return enhanced_terrain.astype(np.float32), stats

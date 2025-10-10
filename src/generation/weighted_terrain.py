@@ -65,10 +65,10 @@ class ZoneWeightedTerrainGenerator:
             buildability_potential: Zones from Session 2 (continuous [0,1])
             base_amplitude: Base terrain amplitude (0.15-0.3)
             min_amplitude_mult: Multiplier for buildable zones (0.2-0.4)
-                - P=1.0 (high buildability) → amplitude = base × min_mult
+                - P=1.0 (high buildability) -> amplitude = base x min_mult
                 - Creates gentle terrain (30% of base amplitude by default)
             max_amplitude_mult: Multiplier for scenic zones (0.8-1.2)
-                - P=0.0 (scenic) → amplitude = base × max_mult
+                - P=0.0 (scenic) -> amplitude = base x max_mult
                 - Creates full terrain detail (100% of base amplitude by default)
             terrain_wavelength: Terrain feature size in meters (500-2000m)
             terrain_octaves: Number of octaves (4-8, default 6)
@@ -109,9 +109,9 @@ class ZoneWeightedTerrainGenerator:
         # Formula: A(x,y) = A_base × (A_min + (A_max - A_min) × (1 - P(x,y)))
         #
         # WHY this formula:
-        # - P = 1.0 (buildable) → A = A_base × A_min (gentle)
-        # - P = 0.0 (scenic) → A = A_base × A_max (full detail)
-        # - Continuous P → Smooth amplitude transitions
+        # - P = 1.0 (buildable) -> A = A_base x A_min (gentle)
+        # - P = 0.0 (scenic) -> A = A_base x A_max (full detail)
+        # - Continuous P -> Smooth amplitude transitions
         if verbose:
             print(f"\n[STEP 1] Calculating amplitude modulation map...")
 
@@ -198,7 +198,7 @@ class ZoneWeightedTerrainGenerator:
             print(f"  Terrain generated: {self.resolution}×{self.resolution}")
             print(f"  Buildability: {buildable_pct:.1f}%")
             print(f"  Normalization: {stats['normalization_method']}")
-            status = "✅ SUCCESS" if 30.0 <= buildable_pct <= 55.0 else "⚠️ OUT OF RANGE"
+            status = "[SUCCESS]" if 30.0 <= buildable_pct <= 55.0 else "[OUT OF RANGE]"
             print(f"  Status: {status}")
 
         return terrain_normalized.astype(np.float32), stats
@@ -220,14 +220,14 @@ class ZoneWeightedTerrainGenerator:
 
         Algorithm:
             If terrain range is already acceptable (-0.1 to 1.1):
-                → Use clipping (no gradient amplification)
+                -> Use clipping (no gradient amplification)
             Else:
-                → Normalize (stretch to [0,1])
+                -> Normalize (stretch to [0,1])
 
         WHY this matters:
             Example: terrain range [0, 0.4]
-            - Traditional: (terrain - 0) / 0.4 → multiplies ALL gradients by 2.5×
-            - Smart: clip(terrain, 0, 1) → no gradient amplification
+            - Traditional: (terrain - 0) / 0.4 -> multiplies ALL gradients by 2.5x
+            - Smart: clip(terrain, 0, 1) -> no gradient amplification
 
         This was the 35× improvement breakthrough from Session 1!
         """
@@ -238,13 +238,13 @@ class ZoneWeightedTerrainGenerator:
             # Already in acceptable range, clip without stretching
             if verbose:
                 print(f"  [SMART NORM] Clipping to [0,1] (no amplification)")
-                print(f"  Range: [{t_min:.3f}, {t_max:.3f}] → acceptable")
+                print(f"  Range: [{t_min:.3f}, {t_max:.3f}] -> acceptable")
             return np.clip(terrain, 0.0, 1.0)
 
         elif t_range > 0:
             # Need normalization
             if verbose:
-                print(f"  [SMART NORM] Normalizing [{t_min:.3f}, {t_max:.3f}] → [0,1]")
+                print(f"  [SMART NORM] Normalizing [{t_min:.3f}, {t_max:.3f}] -> [0,1]")
                 print(f"  Gradient amplification factor: {1.0/t_range:.2f}×")
             return (terrain - t_min) / t_range
 

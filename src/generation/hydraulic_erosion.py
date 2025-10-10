@@ -133,8 +133,8 @@ def calculate_gradient(heightmap: np.ndarray, x: float, y: float) -> Tuple[float
         Tuple of (grad_x, grad_y) - gradient pointing downhill
 
     Uses Sobel-like operator with bilinear interpolation:
-        ∂h/∂x ≈ (h[x+1] - h[x-1]) / 2
-        ∂h/∂y ≈ (h[y+1] - h[y-1]) / 2
+        dh/dx ~= (h[x+1] - h[x-1]) / 2
+        dh/dy ~= (h[y+1] - h[y-1]) / 2
     Negative for downhill direction
     """
     height, width = heightmap.shape
@@ -449,9 +449,9 @@ class HydraulicErosionSimulator:
             print(f"  Improvement: +{final_buildable - initial_buildable:.1f} percentage points")
 
             if final_buildable >= 55.0 and final_buildable <= 65.0:
-                print(f"  ✅ SUCCESS: Target range achieved (55-65%)")
+                print(f"  [SUCCESS] Target range achieved (55-65%)")
             else:
-                print(f"  ⚠️  WARNING: Outside target range (got {final_buildable:.1f}%, target 55-65%)")
+                print(f"  [WARNING] Outside target range (got {final_buildable:.1f}%, target 55-65%)")
 
         # Statistics
         stats = {
