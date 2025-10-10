@@ -29,6 +29,8 @@ from .weighted_terrain import ZoneWeightedTerrainGenerator
 from .ridge_enhancement import RidgeEnhancer
 from .hydraulic_erosion import HydraulicErosionSimulator
 from .river_analysis import RiverAnalyzer
+from .detail_generator import DetailGenerator
+from .constraint_verifier import ConstraintVerifier
 from ..buildability_enforcer import BuildabilityEnforcer
 
 
@@ -97,6 +99,17 @@ class TerrainGenerationPipeline:
             seed=self.seed + 4
         )
 
+        self.detail_gen = DetailGenerator(
+            resolution=resolution,
+            map_size_meters=map_size_meters,
+            seed=self.seed + 5
+        )
+
+        self.constraint_verifier = ConstraintVerifier(
+            resolution=resolution,
+            map_size_meters=map_size_meters
+        )
+
     def generate(self,
                  # Zone generation parameters (Session 2)
                  target_coverage: float = 0.70,
@@ -124,10 +137,20 @@ class TerrainGenerationPipeline:
                  river_threshold_percentile: float = 99.0,
                  min_river_length: int = 10,
 
+                 # Detail addition parameters (Session 8)
+                 detail_amplitude: float = 0.02,
+                 detail_wavelength: float = 75.0,
+
+                 # Constraint verification parameters (Session 8)
+                 target_buildable_min: float = 55.0,
+                 target_buildable_max: float = 65.0,
+                 apply_constraint_adjustment: bool = True,
+
                  # Control flags
                  apply_ridges: bool = True,
                  apply_erosion: bool = True,
                  apply_rivers: bool = True,
+                 apply_detail: bool = True,
                  verbose: bool = True
                  ) -> Tuple[np.ndarray, Dict]:
         """
@@ -333,14 +356,57 @@ class TerrainGenerationPipeline:
                 print(f"\n[STAGE 4.5 SKIPPED] River analysis disabled")
 
         # ====================================================================
-        # STAGE 5: Final Normalization and Validation
+        # STAGE 5.5: Detail Addition and Constraint Verification (Session 8)
         # ====================================================================
         if verbose:
             print(f"\n{'='*80}")
-            print("STAGE 5/5: NORMALIZATION AND VALIDATION")
+            print("STAGE 5.5/6: DETAIL ADDITION & CONSTRAINT VERIFICATION (SESSION 8)")
             print(f"{'='*80}")
 
-        stage5_start = time.time()
+        stage5_5_start = time.time()
+
+        # Add conditional detail to steep areas
+        if apply_detail:
+            if verbose:
+                print(f"\n[5.5.1] Adding conditional detail to steep areas...")
+            terrain, detail_stats = self.detail_gen.add_detail(
+                terrain=terrain,
+                detail_amplitude=detail_amplitude,
+                detail_wavelength=detail_wavelength
+            )
+        else:
+            detail_stats = {'skipped': True}
+            if verbose:
+                print(f"\n[5.5.1] Detail addition skipped")
+
+        # Verify buildability constraints and apply adjustments if needed
+        if verbose:
+            print(f"\n[5.5.2] Verifying buildability constraints...")
+        terrain, verification_result = self.constraint_verifier.verify_and_adjust(
+            terrain=terrain,
+            target_min=target_buildable_min,
+            target_max=target_buildable_max,
+            apply_adjustment=apply_constraint_adjustment
+        )
+
+        stage5_5_time = time.time() - stage5_5_start
+
+        if verbose:
+            print(f"\n[STAGE 5.5 COMPLETE] Time: {stage5_5_time:.2f}s")
+            if apply_detail:
+                print(f"  Detail applied to: {detail_stats['detail_applied_pct']:.1f}% of terrain")
+            print(f"  Final buildability: {verification_result['final_buildable_pct']:.1f}%")
+            print(f"  Target achieved: {verification_result['target_achieved']}")
+
+        # ====================================================================
+        # STAGE 6: Final Normalization and Validation
+        # ====================================================================
+        if verbose:
+            print(f"\n{'='*80}")
+            print("STAGE 6/6: FINAL NORMALIZATION")
+            print(f"{'='*80}")
+
+        stage6_start = time.time()
 
         # Ensure final terrain is in [0, 1] range
         terrain_min, terrain_max = terrain.min(), terrain.max()
@@ -348,13 +414,13 @@ class TerrainGenerationPipeline:
             terrain = (terrain - terrain_min) / (terrain_max - terrain_min)
         terrain = np.clip(terrain, 0.0, 1.0).astype(np.float32)
 
-        # Calculate final buildability
+        # Calculate final buildability (after normalization)
         final_slopes = BuildabilityEnforcer.calculate_slopes(
             terrain, self.map_size_meters
         )
         final_buildable_pct = BuildabilityEnforcer.calculate_buildability_percentage(final_slopes)
 
-        stage5_time = time.time() - stage5_start
+        stage6_time = time.time() - stage6_start
 
         # ====================================================================
         # Compile Complete Statistics
@@ -375,7 +441,8 @@ class TerrainGenerationPipeline:
             'stage3_ridge_time': stage3_time,
             'stage4_erosion_time': stage4_time,
             'stage4_5_river_time': stage4_5_time,
-            'stage5_validation_time': stage5_time,
+            'stage5_5_detail_verification_time': stage5_5_time,
+            'stage6_normalization_time': stage6_time,
             'total_pipeline_time': total_time,
 
             # Stage statistics
@@ -385,6 +452,8 @@ class TerrainGenerationPipeline:
             'erosion_stats': erosion_stats,
             'river_stats': river_stats,
             'river_network': river_network,
+            'detail_stats': detail_stats,
+            'verification_result': verification_result,
 
             # Final metrics
             'final_buildable_pct': float(final_buildable_pct),
@@ -419,14 +488,15 @@ class TerrainGenerationPipeline:
             print("PIPELINE COMPLETE - FINAL RESULTS")
             print(f"{'='*80}")
             print(f"\n[TIMING]")
-            print(f"  Stage 1 (Zones):     {stage1_time:6.2f}s")
-            print(f"  Stage 2 (Terrain):   {stage2_time:6.2f}s")
-            print(f"  Stage 3 (Ridges):    {stage3_time:6.2f}s")
-            print(f"  Stage 4 (Erosion):   {stage4_time:6.2f}s")
-            print(f"  Stage 4.5 (Rivers):  {stage4_5_time:6.2f}s")
-            print(f"  Stage 5 (Validation):{stage5_time:6.2f}s")
+            print(f"  Stage 1 (Zones):       {stage1_time:6.2f}s")
+            print(f"  Stage 2 (Terrain):     {stage2_time:6.2f}s")
+            print(f"  Stage 3 (Ridges):      {stage3_time:6.2f}s")
+            print(f"  Stage 4 (Erosion):     {stage4_time:6.2f}s")
+            print(f"  Stage 4.5 (Rivers):    {stage4_5_time:6.2f}s")
+            print(f"  Stage 5.5 (Detail+Ver):{stage5_5_time:6.2f}s")
+            print(f"  Stage 6 (Normalization):{stage6_time:6.2f}s")
             print(f"  {'-'*40}")
-            print(f"  Total:               {total_time:6.2f}s ({total_time/60:.1f} min)")
+            print(f"  Total:                 {total_time:6.2f}s ({total_time/60:.1f} min)")
 
             print(f"\n[BUILDABILITY PROGRESSION]")
             print(f"  After zones:         N/A (potential map only)")
