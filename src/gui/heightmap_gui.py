@@ -553,16 +553,36 @@ class HeightmapGUI(tk.Tk):
         """
         Generate terrain with current parameters.
 
-        Now uses direct generation (no threading needed - it's fast!).
+        Session 9: Supports both Legacy and New Pipeline modes.
+        - Legacy: Fast generation (~1s), existing tectonic/buildability system
+        - Pipeline: Sessions 2-8 hybrid zoned generation (3-4 min), 55-65% buildable
 
-        Why no threading anymore:
-        - Vectorized generation is FAST (~1 second for 4096x4096)
-        - Threading was only needed for slow 60-120s generation
-        - Direct generation is simpler and more reliable
-        - Brief freeze (<1s) is acceptable for instant results
+        Mode detection:
+        - Checks generation_mode parameter from parameter panel
+        - Routes to appropriate generation path
+        - Uses threading for pipeline mode (prevent UI freezing)
         """
-        # Get intuitive parameters from UI
+        # Get parameters from UI
         intuitive_params = self.param_panel.get_parameters()
+        generation_mode = intuitive_params.get('generation_mode', 'legacy')
+
+        # Route to appropriate generator
+        if generation_mode == 'pipeline':
+            self._generate_terrain_pipeline(intuitive_params)
+        else:
+            self._generate_terrain_legacy(intuitive_params)
+
+    def _generate_terrain_legacy(self, intuitive_params):
+        """
+        Legacy terrain generation (v2.4).
+
+        Fast generation (~1 second) using:
+        - Tectonic structure generation
+        - Amplitude modulation
+        - Buildability enforcement
+        - Hydraulic erosion (optional)
+        """
+        # Get intuitive parameters from UI (already passed in)
 
         # Convert to technical noise parameters
         technical_params = TerrainParameterMapper.intuitive_to_technical(
@@ -827,6 +847,139 @@ class HeightmapGUI(tk.Tk):
         progress_dialog.close()
         messagebox.showerror("Generation Error", f"Failed to generate terrain:\n\n{error_msg}")
         self.set_status("Generation failed")
+
+    def _generate_terrain_pipeline(self, intuitive_params):
+        """
+        New pipeline terrain generation (Sessions 2-8).
+
+        Hybrid zoned generation with hydraulic erosion to achieve 55-65% buildable terrain.
+        Runs in background thread to prevent UI freezing (~3-4 minutes).
+
+        Args:
+            intuitive_params: Parameter dictionary from parameter panel
+        """
+        # Create progress dialog
+        progress_dialog = ProgressDialog(
+            self,
+            title="Generating Terrain (Pipeline)",
+            message="Initializing pipeline...",
+            cancelable=False
+        )
+
+        def generate_in_background():
+            """Run pipeline generation in background thread."""
+            try:
+                from ..generation.pipeline import TerrainGenerationPipeline
+
+                # Create pipeline with seed
+                seed = self.noise_gen.seed if hasattr(self, 'noise_gen') else None
+                pipeline = TerrainGenerationPipeline(
+                    resolution=self.resolution,
+                    map_size_meters=14336.0,
+                    seed=seed
+                )
+
+                # Extract pipeline parameters
+                params = {
+                    # Zone Generation (Session 2)
+                    'target_coverage': intuitive_params.get('target_coverage', 0.70),
+                    'zone_wavelength': intuitive_params.get('zone_wavelength', 6500.0),
+                    'zone_octaves': intuitive_params.get('zone_octaves', 2),
+
+                    # Terrain Generation (Session 3)
+                    'base_amplitude': intuitive_params.get('base_amplitude', 0.2),
+                    'min_amplitude_mult': intuitive_params.get('min_amplitude_mult', 0.3),
+                    'max_amplitude_mult': intuitive_params.get('max_amplitude_mult', 1.0),
+                    'terrain_wavelength': intuitive_params.get('terrain_wavelength', 1000.0),
+                    'terrain_octaves': intuitive_params.get('terrain_octaves', 6),
+
+                    # Ridge Enhancement (Session 5)
+                    'ridge_strength': intuitive_params.get('ridge_strength', 0.2),
+                    'ridge_octaves': intuitive_params.get('ridge_octaves', 5),
+                    'ridge_wavelength': intuitive_params.get('ridge_wavelength', 1500.0),
+                    'apply_ridges': intuitive_params.get('apply_ridges', True),
+
+                    # Hydraulic Erosion (Session 4)
+                    'num_particles': intuitive_params.get('num_particles', 100000),
+                    'erosion_rate': intuitive_params.get('pipeline_erosion_rate', 0.5),
+                    'deposition_rate': intuitive_params.get('pipeline_deposition_rate', 0.3),
+                    'apply_erosion': intuitive_params.get('apply_erosion', True),
+
+                    # River Analysis (Session 7)
+                    'river_threshold_percentile': intuitive_params.get('river_threshold_percentile', 99.0),
+                    'min_river_length': intuitive_params.get('min_river_length', 10),
+                    'apply_rivers': intuitive_params.get('apply_rivers', True),
+
+                    # Detail Addition (Session 8)
+                    'detail_amplitude': intuitive_params.get('detail_amplitude', 0.02),
+                    'detail_wavelength': intuitive_params.get('detail_wavelength', 75.0),
+                    'apply_detail': intuitive_params.get('apply_detail', True),
+
+                    # Constraint Verification (Session 8)
+                    'target_buildable_min': intuitive_params.get('target_buildable_min', 55.0),
+                    'target_buildable_max': intuitive_params.get('target_buildable_max', 65.0),
+                    'apply_constraint_adjustment': intuitive_params.get('apply_constraint_adjustment', True),
+
+                    # Control
+                    'verbose': False  # Disable console output (use progress dialog instead)
+                }
+
+                # Update progress: Starting pipeline
+                self.after(0, lambda: progress_dialog.update(0, "Stage 1/6: Generating buildability zones..."))
+
+                # Generate terrain with pipeline
+                terrain, stats = pipeline.generate(**params)
+
+                # Update UI on main thread
+                self.after(0, lambda: self._on_pipeline_complete(terrain, stats, progress_dialog))
+
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"[PIPELINE ERROR] {error_details}")
+                # Handle errors on main thread
+                self.after(0, lambda: self._on_generation_error(str(e), progress_dialog))
+
+        # Start background thread
+        thread = threading.Thread(target=generate_in_background, daemon=True)
+        thread.start()
+
+        # Show progress dialog (blocks until closed)
+        progress_dialog.show()
+
+    def _on_pipeline_complete(self, terrain: np.ndarray, stats: dict, progress_dialog: ProgressDialog):
+        """
+        Called when pipeline generation completes (on main thread).
+
+        Args:
+            terrain: Generated terrain heightmap
+            stats: Pipeline statistics dictionary
+            progress_dialog: Progress dialog to close
+        """
+        progress_dialog.close()
+
+        # Update heightmap
+        self.heightmap = terrain
+        self.generator.heightmap = terrain.copy()
+
+        # Update preview
+        self.set_status("Generating preview...")
+        self.update_idletasks()
+        self.update_preview()
+
+        # Update status indicators
+        self.playable_status.config(text="Playable: ✓", foreground='green')
+
+        # Show results dialog
+        from .pipeline_results_dialog import show_results_dialog
+        show_results_dialog(self, stats)
+
+        # Update status
+        final_buildable = stats.get('final_buildable_pct', 0.0)
+        total_time = stats.get('total_pipeline_time', 0.0)
+        self.set_status(f"Pipeline complete: {final_buildable:.1f}% buildable in {total_time:.1f}s")
+
+        print(f"[GUI] Pipeline generation complete: {final_buildable:.1f}% buildable")
 
     def zoom_in(self):
         """Zoom in on the preview."""
