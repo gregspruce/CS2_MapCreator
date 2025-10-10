@@ -7,7 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Version 2.5.0-dev
 
+### Refactored - Legacy System Removal (2025-10-10)
+
+#### Correction: Strictly Following Implementation Plan
+- **What**: Removed all legacy generation code from GUI per CS2_FINAL_IMPLEMENTATION_PLAN.md
+- **Why**: Implementation plan specified "Replace current GUI generation with new pipeline", not "Add as option alongside legacy"
+- **Impact**: GUI now focuses exclusively on proven 55-65% buildable pipeline, eliminating broken 18.5% legacy system
+
+**Legacy System Issues** (Removed):
+- **Architectural Problems**: Binary mask + amplitude modulation fundamentally flawed
+  - Frequency domain convolution creates pincushion problem (isolated peaks, not coherent ranges)
+  - Amplitude-slope proportionality prevents buildability escape (∇(A·noise) = A·∇noise)
+  - FBM accumulation with 6 octaves multiplies slopes by 6-7×
+- **Performance**: Only achieved 18.5% buildable (65% below target 55-65%)
+- **User Impact**: Unusable terrain for Cities: Skylines 2 gameplay
+
+**Files Modified** (`src/gui/parameter_panel.py` - ~800 lines removed):
+- Removed generation mode selector (radio buttons for Legacy vs Pipeline)
+- Removed all legacy parameters from `self.params` dict
+- Removed `_create_basic_tab()` and `_create_quality_tab()` methods
+- Removed all preset, erosion, and buildability enforcement handlers
+- Renamed "Pipeline" tab to "Terrain" (it's now the only option)
+- Simplified `get_parameters()` to return only pipeline parameters
+- Changed button text from "Generate Playable Terrain" to "Generate Terrain"
+
+**Files Modified** (`src/gui/heightmap_gui.py` - ~250 lines removed):
+- Removed entire `_generate_terrain_legacy()` method (247 lines)
+- Simplified `generate_terrain()` to directly call `_generate_terrain_pipeline()`
+- Removed mode detection and routing logic
+- Changed toolbar button text from "Generate Playable" to "Generate Terrain"
+
+**Result**:
+- Single unified interface for pipeline generation
+- Cleaner, more maintainable codebase
+- Focus on proven implementation (Sessions 2-8)
+- No confusing mode selection for users
+- All terrain generation achieves target 55-65% buildable
+
+**Architecture**: GUI now exclusively uses:
+1. Zone generation (Session 2) → Buildability potential maps
+2. Weighted terrain (Session 3) → Zone-aware amplitude
+3. Ridge enhancement (Session 5) → Geological realism
+4. Hydraulic erosion (Session 4) → Emergent buildability
+5. River analysis (Session 7) → Flow networks
+6. Detail addition (Session 8) → Fine-scale features
+7. Constraint verification (Session 8) → Target enforcement
+
+**Code Quality**: Refactoring performed by refactoring-expert subagent
+- Systematic removal of all legacy references
+- No breaking changes to pipeline functionality
+- Preserved all Session 2-8 integration
+- Maintained threading architecture for UI responsiveness
+
+**Note**: This correction follows CLAUDE.md instruction #1: "the instructions were to strictly follow (C:\VSCode\CS2_Map\Claude_Handoff\CS2_FINAL_IMPLEMENTATION_PLAN.md)"
+
+---
+
 ### Added - Session 9: GUI Integration (2025-10-10)
+
+#### Note: Initial Dual-Mode Implementation (CORRECTED ABOVE)
+The initial Session 9 implementation added a dual-mode system (Legacy + Pipeline selector), which was incorrect. The implementation plan specified "Replace", not "Add as option". See "Legacy System Removal" entry above for the correction.
+
+#### Feature: Pipeline Integration into GUI (FINAL)
 
 #### Feature: Dual-Mode Terrain Generation System
 - **What**: Integrated new pipeline (Sessions 2-8) into existing Tkinter GUI with mode selector
