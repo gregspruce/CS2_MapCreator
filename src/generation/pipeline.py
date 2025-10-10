@@ -28,6 +28,7 @@ from .zone_generator import BuildabilityZoneGenerator
 from .weighted_terrain import ZoneWeightedTerrainGenerator
 from .ridge_enhancement import RidgeEnhancer
 from .hydraulic_erosion import HydraulicErosionSimulator
+from .river_analysis import RiverAnalyzer
 from ..buildability_enforcer import BuildabilityEnforcer
 
 
@@ -90,6 +91,12 @@ class TerrainGenerationPipeline:
             seed=self.seed + 3
         )
 
+        self.river_analyzer = RiverAnalyzer(
+            resolution=resolution,
+            map_size_meters=map_size_meters,
+            seed=self.seed + 4
+        )
+
     def generate(self,
                  # Zone generation parameters (Session 2)
                  target_coverage: float = 0.70,
@@ -113,9 +120,14 @@ class TerrainGenerationPipeline:
                  erosion_rate: float = 0.5,
                  deposition_rate: float = 0.3,
 
+                 # River analysis parameters (Session 7)
+                 river_threshold_percentile: float = 99.0,
+                 min_river_length: int = 10,
+
                  # Control flags
                  apply_ridges: bool = True,
                  apply_erosion: bool = True,
+                 apply_rivers: bool = True,
                  verbose: bool = True
                  ) -> Tuple[np.ndarray, Dict]:
         """
@@ -147,9 +159,14 @@ class TerrainGenerationPipeline:
             erosion_rate: Erosion speed 0.3-0.8 (default: 0.5)
             deposition_rate: Deposition speed 0.1-0.5 (default: 0.3)
 
+            # River Analysis (Session 7)
+            river_threshold_percentile: Flow percentile for rivers 95-99.5 (default: 99.0)
+            min_river_length: Minimum river length in pixels (default: 10)
+
             # Control
             apply_ridges: Enable ridge enhancement (default: True)
             apply_erosion: Enable hydraulic erosion (default: True)
+            apply_rivers: Enable river analysis (default: True)
             verbose: Print progress information (default: True)
 
         Returns:
@@ -285,6 +302,37 @@ class TerrainGenerationPipeline:
                 print(f"\n[STAGE 4 SKIPPED] Hydraulic erosion disabled")
 
         # ====================================================================
+        # STAGE 4.5: River Analysis and Flow Networks (Session 7) [OPTIONAL]
+        # ====================================================================
+        if apply_rivers:
+            if verbose:
+                print(f"\n{'='*80}")
+                print("STAGE 4.5/5: RIVER ANALYSIS (SESSION 7)")
+                print(f"{'='*80}")
+
+            stage4_5_start = time.time()
+            river_network, river_stats = self.river_analyzer.analyze_rivers(
+                heightmap=terrain,
+                buildability_potential=buildability_potential,
+                threshold_percentile=river_threshold_percentile,
+                min_river_length=min_river_length,
+                verbose=verbose
+            )
+            stage4_5_time = time.time() - stage4_5_start
+
+            if verbose:
+                print(f"\n[STAGE 4.5 COMPLETE] Time: {stage4_5_time:.2f}s")
+                print(f"  Rivers detected: {river_stats['num_rivers']}")
+                if river_stats['num_rivers'] > 0:
+                    print(f"  Total river length: {river_stats['total_river_length_meters']:.0f}m")
+        else:
+            stage4_5_time = 0.0
+            river_network = None
+            river_stats = {'skipped': True}
+            if verbose:
+                print(f"\n[STAGE 4.5 SKIPPED] River analysis disabled")
+
+        # ====================================================================
         # STAGE 5: Final Normalization and Validation
         # ====================================================================
         if verbose:
@@ -326,6 +374,7 @@ class TerrainGenerationPipeline:
             'stage2_terrain_time': stage2_time,
             'stage3_ridge_time': stage3_time,
             'stage4_erosion_time': stage4_time,
+            'stage4_5_river_time': stage4_5_time,
             'stage5_validation_time': stage5_time,
             'total_pipeline_time': total_time,
 
@@ -334,6 +383,8 @@ class TerrainGenerationPipeline:
             'terrain_stats': terrain_stats,
             'ridge_stats': ridge_stats,
             'erosion_stats': erosion_stats,
+            'river_stats': river_stats,
+            'river_network': river_network,
 
             # Final metrics
             'final_buildable_pct': float(final_buildable_pct),
@@ -372,6 +423,7 @@ class TerrainGenerationPipeline:
             print(f"  Stage 2 (Terrain):   {stage2_time:6.2f}s")
             print(f"  Stage 3 (Ridges):    {stage3_time:6.2f}s")
             print(f"  Stage 4 (Erosion):   {stage4_time:6.2f}s")
+            print(f"  Stage 4.5 (Rivers):  {stage4_5_time:6.2f}s")
             print(f"  Stage 5 (Validation):{stage5_time:6.2f}s")
             print(f"  {'-'*40}")
             print(f"  Total:               {total_time:6.2f}s ({total_time/60:.1f} min)")
