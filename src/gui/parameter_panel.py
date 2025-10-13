@@ -67,12 +67,12 @@ class ParameterPanel(ttk.Frame):
         # Session 9: New Pipeline Parameters (Sessions 2-8)
         self.pipeline_params = {
             # Zone Generation (Session 2)
-            'target_coverage': tk.DoubleVar(value=0.70),  # 60-80%
+            'target_coverage': tk.DoubleVar(value=0.77),  # Tuned for 55-65% buildability (no erosion)
             'zone_wavelength': tk.DoubleVar(value=6500.0),  # 5000-8000m
             'zone_octaves': tk.IntVar(value=2),  # 2-3
 
             # Terrain Generation (Session 3)
-            'base_amplitude': tk.DoubleVar(value=0.2),  # 0.15-0.3
+            'base_amplitude': tk.DoubleVar(value=0.175),  # Tuned for 55-65% buildability (no erosion)
             'min_amplitude_mult': tk.DoubleVar(value=0.3),  # 0.2-0.4
             'max_amplitude_mult': tk.DoubleVar(value=1.0),  # 0.8-1.2
             'terrain_wavelength': tk.DoubleVar(value=1000.0),  # 500-2000m
@@ -82,13 +82,13 @@ class ParameterPanel(ttk.Frame):
             'ridge_strength': tk.DoubleVar(value=0.2),  # 0.1-0.3
             'ridge_octaves': tk.IntVar(value=5),  # 4-6
             'ridge_wavelength': tk.DoubleVar(value=1500.0),  # 1000-2000m
-            'apply_ridges': tk.BooleanVar(value=True),
+            'apply_ridges': tk.BooleanVar(value=False),  # Disabled - ridges add steep slopes
 
             # Hydraulic Erosion (Session 4)
             'num_particles': tk.IntVar(value=100000),  # 50k-200k
-            'pipeline_erosion_rate': tk.DoubleVar(value=0.5),  # 0.3-0.8
-            'pipeline_deposition_rate': tk.DoubleVar(value=0.3),  # 0.1-0.5
-            'apply_erosion': tk.BooleanVar(value=True),
+            'pipeline_erosion_rate': tk.DoubleVar(value=0.2),  # 0.1-0.5
+            'pipeline_deposition_rate': tk.DoubleVar(value=0.6),  # 0.3-0.8
+            'apply_erosion': tk.BooleanVar(value=False),  # Disabled - creates near-vertical terrain (see EROSION_ANALYSIS_FINAL.md)
 
             # River Analysis (Session 7)
             'river_threshold_percentile': tk.DoubleVar(value=99.0),  # 95-99.5
@@ -98,7 +98,7 @@ class ParameterPanel(ttk.Frame):
             # Detail Addition (Session 8)
             'detail_amplitude': tk.DoubleVar(value=0.02),  # 0.01-0.05
             'detail_wavelength': tk.DoubleVar(value=75.0),  # 50-150m
-            'apply_detail': tk.BooleanVar(value=True),
+            'apply_detail': tk.BooleanVar(value=False),  # Disabled - too large for gentle terrain
 
             # Constraint Verification (Session 8)
             'target_buildable_min': tk.DoubleVar(value=55.0),  # 55%
@@ -353,11 +353,11 @@ class ParameterPanel(ttk.Frame):
         )
         self._create_slider_control(
             erosion_frame, "Erosion Rate:", self.pipeline_params['pipeline_erosion_rate'],
-            0.3, 0.8, "{:.2f}", "Carving strength (0.5=moderate)"
+            0.1, 0.5, "{:.2f}", "Carving strength (0.2=gentle, favors deposition)"
         )
         self._create_slider_control(
             erosion_frame, "Deposition Rate:", self.pipeline_params['pipeline_deposition_rate'],
-            0.1, 0.5, "{:.2f}", "Sediment deposition (0.3=moderate)"
+            0.3, 0.8, "{:.2f}", "Sediment deposition (0.6=strong, fills valleys)"
         )
 
         # River Analysis section

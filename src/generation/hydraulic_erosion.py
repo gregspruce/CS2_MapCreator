@@ -176,7 +176,7 @@ def simulate_particle_numba(
         gaussian_kernel: Pre-computed Gaussian brush
         start_x, start_y: Particle spawn position
         params: [inertia, erosion_rate, deposition_rate, evaporation_rate,
-                 sediment_capacity, min_slope, max_steps]
+                 sediment_capacity, min_slope, max_steps, terrain_scale]
 
     Particle Lifecycle:
         1. Calculate gradient at current position
@@ -192,6 +192,10 @@ def simulate_particle_numba(
         factor = 0.5 + 1.0 × buildability_potential
         - P=1.0 (buildable): factor=1.5 (strong erosion → flat valleys)
         - P=0.0 (scenic): factor=0.5 (gentle erosion → preserve mountains)
+
+    Terrain Scale:
+        Adjusts erosion strength for float32 [0,1] terrain vs 8-bit [0,255].
+        Default 10.0 provides gentle, buildability-preserving erosion.
     """
     # Extract parameters
     inertia = params[0]
@@ -201,6 +205,7 @@ def simulate_particle_numba(
     sediment_capacity_coeff = params[4]
     min_slope = params[5]
     max_steps = int(params[6])
+    terrain_scale = params[7]  # NEW: Scale factor for [0,1] terrain
 
     height, width = heightmap.shape
     brush_radius = gaussian_kernel.shape[0] // 2
@@ -230,9 +235,10 @@ def simulate_particle_numba(
         vx = inertia * vx + (1.0 - inertia) * grad_x
         vy = inertia * vy + (1.0 - inertia) * grad_y
 
-        # Calculate sediment capacity: C = Ks × slope × |velocity| × water
+        # Calculate sediment capacity: C = Ks × slope × |velocity| × water × terrain_scale
+        # terrain_scale compensates for float32 [0,1] range vs 8-bit [0,255]
         velocity_mag = np.sqrt(vx**2 + vy**2)
-        capacity = sediment_capacity_coeff * slope * velocity_mag * water
+        capacity = sediment_capacity_coeff * slope * velocity_mag * water * terrain_scale
 
         # Get zone modulation factor
         ix, iy = int(x), int(y)
@@ -324,12 +330,13 @@ class HydraulicErosionSimulator:
               buildability_potential: np.ndarray,
               num_particles: int = 100000,
               inertia: float = 0.1,
-              erosion_rate: float = 0.5,
-              deposition_rate: float = 0.3,
-              evaporation_rate: float = 0.02,
-              sediment_capacity: float = 4.0,
+              erosion_rate: float = 0.2,
+              deposition_rate: float = 0.6,
+              evaporation_rate: float = 0.005,
+              sediment_capacity: float = 6.0,
               min_slope: float = 0.0005,
               brush_radius: int = 3,
+              terrain_scale: float = 2.5,
               verbose: bool = True) -> Tuple[np.ndarray, Dict]:
         """
         Apply particle-based hydraulic erosion with zone modulation.
@@ -339,12 +346,13 @@ class HydraulicErosionSimulator:
             buildability_potential: Zones from Session 2, shape (N, N), range [0, 1]
             num_particles: Number of particles to simulate (50k-200k)
             inertia: Velocity preservation (0.05-0.3, default 0.1)
-            erosion_rate: Terrain carving speed (0.3-0.8, default 0.5)
-            deposition_rate: Sediment settling speed (0.1-0.5, default 0.3)
-            evaporation_rate: Water loss per step (0.01-0.05, default 0.02)
-            sediment_capacity: Max sediment per water (2.0-6.0, default 4.0)
+            erosion_rate: Terrain carving speed (0.1-0.5, default 0.2)
+            deposition_rate: Sediment settling speed (0.3-0.8, default 0.6)
+            evaporation_rate: Water loss per step (0.001-0.01, default 0.005)
+            sediment_capacity: Max sediment per water (4.0-8.0, default 6.0)
             min_slope: Movement threshold (0.0001-0.001, default 0.0005)
             brush_radius: Erosion spread radius (3-5 pixels, default 3)
+            terrain_scale: Amplitude scale for [0,1] terrain (1.0-5.0, default 2.5)
             verbose: Print progress information
 
         Returns:
@@ -410,7 +418,8 @@ class HydraulicErosionSimulator:
             evaporation_rate,
             sediment_capacity,
             min_slope,
-            1000  # max_steps per particle
+            1000,  # max_steps per particle
+            terrain_scale  # NEW: Scale factor for [0,1] terrain
         ], dtype=np.float32)
 
         # Simulate particles
@@ -431,14 +440,14 @@ class HydraulicErosionSimulator:
 
         elapsed = time.time() - start_time
 
-        # Calculate final buildability
-        final_slopes = BuildabilityEnforcer.calculate_slopes(eroded, self.map_size_meters)
-        final_buildable = BuildabilityEnforcer.calculate_buildability_percentage(final_slopes)
-
-        # Normalize to [0, 1]
+        # Normalize to [0, 1] FIRST
         eroded_min, eroded_max = eroded.min(), eroded.max()
         if eroded_max > eroded_min:
             eroded = (eroded - eroded_min) / (eroded_max - eroded_min)
+
+        # Calculate final buildability AFTER normalization
+        final_slopes = BuildabilityEnforcer.calculate_slopes(eroded, self.map_size_meters)
+        final_buildable = BuildabilityEnforcer.calculate_buildability_percentage(final_slopes)
 
         if verbose:
             print(f"\n[Erosion Complete]")

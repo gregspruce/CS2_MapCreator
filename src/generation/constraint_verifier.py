@@ -76,7 +76,8 @@ class ConstraintVerifier:
         target_max: float = 65.0,
         apply_adjustment: bool = True,
         adjustment_sigma: float = 3.0,
-        max_adjustment_iterations: int = 3
+        max_adjustment_iterations: int = 3,
+        verbose: bool = True
     ) -> Tuple[np.ndarray, Dict]:
         """
         Verify buildability constraints and apply adjustment if needed.
@@ -88,6 +89,7 @@ class ConstraintVerifier:
             apply_adjustment: Whether to auto-adjust if < target_min (default: True)
             adjustment_sigma: Gaussian smoothing strength (default: 3.0 pixels)
             max_adjustment_iterations: Maximum smoothing iterations (default: 3)
+            verbose: Print progress information (default: True)
 
         Returns:
             Tuple of (adjusted_terrain, verification_result_dict)
@@ -114,24 +116,28 @@ class ConstraintVerifier:
         if max_adjustment_iterations < 0 or max_adjustment_iterations > 10:
             raise ValueError(f"Max iterations must be 0-10, got {max_adjustment_iterations}")
 
-        print(f"\n[ConstraintVerifier] Verifying buildability constraints...")
-        print(f"  Target range: {target_min:.1f}% - {target_max:.1f}%")
-        print(f"  Auto-adjustment: {'ENABLED' if apply_adjustment else 'DISABLED'}")
+        if verbose:
+            print(f"\n[ConstraintVerifier] Verifying buildability constraints...")
+            print(f"  Target range: {target_min:.1f}% - {target_max:.1f}%")
+            print(f"  Auto-adjustment: {'ENABLED' if apply_adjustment else 'DISABLED'}")
 
         # Step 1: Calculate initial buildability
-        print(f"  [1/3] Calculating slopes and buildability...")
+        if verbose:
+            print(f"  [1/3] Calculating slopes and buildability...")
         slopes = BuildabilityEnforcer.calculate_slopes(terrain, self.map_size_meters)
         initial_buildable_pct = BuildabilityEnforcer.calculate_buildability_percentage(slopes)
 
         # Step 2: Classify terrain regions
-        print(f"  [2/3] Classifying terrain regions...")
+        if verbose:
+            print(f"  [2/3] Classifying terrain regions...")
         classification = self._classify_terrain(slopes)
 
         # Check if target achieved
         target_achieved = target_min <= initial_buildable_pct <= target_max
 
-        print(f"  Initial buildability: {initial_buildable_pct:.1f}%")
-        print(f"  Target achieved: {'YES' if target_achieved else 'NO'}")
+        if verbose:
+            print(f"  Initial buildability: {initial_buildable_pct:.1f}%")
+            print(f"  Target achieved: {'YES' if target_achieved else 'NO'}")
 
         # Step 3: Apply adjustment if needed
         adjusted_terrain = terrain.copy()
@@ -139,18 +145,21 @@ class ConstraintVerifier:
         adjustment_stats = {}
 
         if not target_achieved and initial_buildable_pct < target_min and apply_adjustment:
-            print(f"  [3/3] Applying auto-adjustment (target < {target_min:.1f}%)...")
+            if verbose:
+                print(f"  [3/3] Applying auto-adjustment (target < {target_min:.1f}%)...")
             adjusted_terrain, adjustment_stats = self._apply_adjustment(
                 terrain,
                 slopes,
                 classification,
                 target_min,
                 adjustment_sigma,
-                max_adjustment_iterations
+                max_adjustment_iterations,
+                verbose
             )
             adjustments_applied = True
         else:
-            print(f"  [3/3] No adjustment needed")
+            if verbose:
+                print(f"  [3/3] No adjustment needed")
 
         # Recalculate buildability after adjustment
         if adjustments_applied:
@@ -189,10 +198,11 @@ class ConstraintVerifier:
             'processing_time': float(elapsed)
         }
 
-        print(f"  [SUCCESS] Verification complete")
-        print(f"  Final buildability: {final_buildable_pct:.1f}%")
-        print(f"  Target achieved: {'YES' if result['target_achieved'] else 'NO'}")
-        print(f"  Processing time: {elapsed:.2f}s")
+        if verbose:
+            print(f"  [SUCCESS] Verification complete")
+            print(f"  Final buildability: {final_buildable_pct:.1f}%")
+            print(f"  Target achieved: {'YES' if result['target_achieved'] else 'NO'}")
+            print(f"  Processing time: {elapsed:.2f}s")
 
         return adjusted_terrain.astype(np.float32), result
 
@@ -240,7 +250,8 @@ class ConstraintVerifier:
         classification: Dict,
         target_min: float,
         sigma: float,
-        max_iterations: int
+        max_iterations: int,
+        verbose: bool = True
     ) -> Tuple[np.ndarray, Dict]:
         """
         Apply conservative smoothing to near-buildable regions.
@@ -266,8 +277,9 @@ class ConstraintVerifier:
         adjusted = terrain.copy()
         near_buildable_mask = classification['near_buildable_mask']
 
-        print(f"    Smoothing near-buildable regions ({classification['near_buildable_pct']:.1f}% of terrain)")
-        print(f"    Smoothing parameters: sigma={sigma:.1f}, max_iterations={max_iterations}")
+        if verbose:
+            print(f"    Smoothing near-buildable regions ({classification['near_buildable_pct']:.1f}% of terrain)")
+            print(f"    Smoothing parameters: sigma={sigma:.1f}, max_iterations={max_iterations}")
 
         iterations_performed = 0
         improvement_per_iteration = []
@@ -292,19 +304,22 @@ class ConstraintVerifier:
             )
             improvement_per_iteration.append(improvement)
 
-            print(f"      Iteration {iteration + 1}: {new_buildable_pct:.1f}% buildable (+{improvement:.1f}%)")
+            if verbose:
+                print(f"      Iteration {iteration + 1}: {new_buildable_pct:.1f}% buildable (+{improvement:.1f}%)")
 
             adjusted = adjusted_new
             iterations_performed += 1
 
             # Stop if target achieved
             if new_buildable_pct >= target_min:
-                print(f"      Target achieved after {iterations_performed} iteration(s)")
+                if verbose:
+                    print(f"      Target achieved after {iterations_performed} iteration(s)")
                 break
 
             # Stop if improvement is minimal (< 0.1%)
             if abs(improvement) < 0.1:
-                print(f"      Minimal improvement, stopping early")
+                if verbose:
+                    print(f"      Minimal improvement, stopping early")
                 break
 
         # Calculate total improvement

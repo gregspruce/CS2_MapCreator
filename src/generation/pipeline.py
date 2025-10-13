@@ -130,12 +130,12 @@ class TerrainGenerationPipeline:
 
     def generate(self,
                  # Zone generation parameters (Session 2)
-                 target_coverage: float = 0.70,
+                 target_coverage: float = 0.77,  # Tuned for 55-65% buildability (no erosion)
                  zone_wavelength: float = 6500.0,
                  zone_octaves: int = 2,
 
                  # Terrain generation parameters (Session 3)
-                 base_amplitude: float = 0.2,
+                 base_amplitude: float = 0.175,  # Tuned for 55-65% buildability (no erosion)
                  min_amplitude_mult: float = 0.3,
                  max_amplitude_mult: float = 1.0,
                  terrain_wavelength: float = 1000.0,
@@ -148,8 +148,8 @@ class TerrainGenerationPipeline:
 
                  # Hydraulic erosion parameters (Session 4)
                  num_particles: int = 100000,
-                 erosion_rate: float = 0.5,
-                 deposition_rate: float = 0.3,
+                 erosion_rate: float = 0.2,
+                 deposition_rate: float = 0.6,
 
                  # River analysis parameters (Session 7)
                  river_threshold_percentile: float = 99.0,
@@ -165,10 +165,10 @@ class TerrainGenerationPipeline:
                  apply_constraint_adjustment: bool = True,
 
                  # Control flags
-                 apply_ridges: bool = True,
-                 apply_erosion: bool = True,
+                 apply_ridges: bool = False,  # Disabled - ridges add steep slopes
+                 apply_erosion: bool = False,  # Disabled - creates near-vertical terrain (see EROSION_ANALYSIS_FINAL.md)
                  apply_rivers: bool = True,
-                 apply_detail: bool = True,
+                 apply_detail: bool = False,  # Disabled - detail too large for gentle terrain (causes steep artificial slopes)
                  verbose: bool = True
                  ) -> Tuple[np.ndarray, Dict]:
         """
@@ -197,8 +197,8 @@ class TerrainGenerationPipeline:
 
             # Hydraulic Erosion (Session 4)
             num_particles: Particle count 50k-200k (default: 100k)
-            erosion_rate: Erosion speed 0.3-0.8 (default: 0.5)
-            deposition_rate: Deposition speed 0.1-0.5 (default: 0.3)
+            erosion_rate: Erosion speed 0.1-0.5 (default: 0.2)
+            deposition_rate: Deposition speed 0.3-0.8 (default: 0.6)
 
             # River Analysis (Session 7)
             river_threshold_percentile: Flow percentile for rivers 95-99.5 (default: 99.0)
@@ -280,13 +280,10 @@ class TerrainGenerationPipeline:
         )
         stage2_time = time.time() - stage2_start
 
-        # Normalize terrain to [0, 1] after weighted generation
-        terrain = self._normalize_terrain(terrain)
-
         if verbose:
             print(f"\n[STAGE 2 COMPLETE] Time: {stage2_time:.2f}s")
             print(f"  Buildability before erosion: {terrain_stats['buildable_percent']:.1f}%")
-            print(f"  Terrain normalized to [0, 1] range")
+            print(f"  Terrain range: [{terrain.min():.3f}, {terrain.max():.3f}]")
 
         # ====================================================================
         # STAGE 3: Apply Ridge Enhancement (Session 5) [OPTIONAL]
@@ -308,13 +305,10 @@ class TerrainGenerationPipeline:
             )
             stage3_time = time.time() - stage3_start
 
-            # Normalize terrain to [0, 1] after ridge enhancement
-            terrain = self._normalize_terrain(terrain)
-
             if verbose:
                 print(f"\n[STAGE 3 COMPLETE] Time: {stage3_time:.2f}s")
                 print(f"  Ridge coverage: {ridge_stats['ridge_coverage_pct']:.1f}%")
-                print(f"  Terrain normalized to [0, 1] range")
+                print(f"  Terrain range: [{terrain.min():.3f}, {terrain.max():.3f}]")
         else:
             stage3_time = 0.0
             ridge_stats = {'skipped': True}
@@ -341,13 +335,10 @@ class TerrainGenerationPipeline:
             )
             stage4_time = time.time() - stage4_start
 
-            # Normalize terrain to [0, 1] after erosion
-            terrain = self._normalize_terrain(terrain)
-
             if verbose:
                 print(f"\n[STAGE 4 COMPLETE] Time: {stage4_time:.2f}s")
                 print(f"  Buildability improvement: +{erosion_stats['improvement_pct']:.1f}%")
-                print(f"  Terrain normalized to [0, 1] range")
+                print(f"  Terrain range: [{terrain.min():.3f}, {terrain.max():.3f}]")
         else:
             stage4_time = 0.0
             erosion_stats = {'skipped': True}
@@ -395,6 +386,11 @@ class TerrainGenerationPipeline:
 
         stage5_5_start = time.time()
 
+        # NOTE: Terrain is already normalized by erosion stage (line 446 in hydraulic_erosion.py)
+        # No need to normalize again - that would destroy gradient information!
+        if verbose:
+            print(f"\n  Terrain range: [{terrain.min():.3f}, {terrain.max():.3f}]")
+
         # Add conditional detail to steep areas
         if apply_detail:
             if verbose:
@@ -402,7 +398,8 @@ class TerrainGenerationPipeline:
             terrain, detail_stats = self.detail_gen.add_detail(
                 terrain=terrain,
                 detail_amplitude=detail_amplitude,
-                detail_wavelength=detail_wavelength
+                detail_wavelength=detail_wavelength,
+                verbose=verbose
             )
         else:
             detail_stats = {'skipped': True}
@@ -416,7 +413,8 @@ class TerrainGenerationPipeline:
             terrain=terrain,
             target_min=target_buildable_min,
             target_max=target_buildable_max,
-            apply_adjustment=apply_constraint_adjustment
+            apply_adjustment=apply_constraint_adjustment,
+            verbose=verbose
         )
 
         stage5_5_time = time.time() - stage5_5_start

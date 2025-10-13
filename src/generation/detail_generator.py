@@ -86,7 +86,8 @@ class DetailGenerator:
         max_slope_threshold: float = 0.15,
         octaves: int = 2,
         persistence: float = 0.5,
-        lacunarity: float = 2.0
+        lacunarity: float = 2.0,
+        verbose: bool = True
     ) -> Tuple[np.ndarray, Dict]:
         """
         Add conditional detail to steep terrain areas.
@@ -100,6 +101,7 @@ class DetailGenerator:
             octaves: Number of noise octaves (default: 2)
             persistence: Amplitude decay per octave (default: 0.5)
             lacunarity: Frequency multiplier per octave (default: 2.0)
+            verbose: Print progress information (default: True)
 
         Returns:
             Tuple of (detailed_terrain, statistics_dict)
@@ -128,20 +130,23 @@ class DetailGenerator:
         if octaves < 1 or octaves > 4:
             raise ValueError(f"Octaves must be 1-4, got {octaves}")
 
-        print(f"\n[DetailGenerator] Adding conditional detail...")
-        print(f"  Detail amplitude: {detail_amplitude:.3f}")
-        print(f"  Detail wavelength: {detail_wavelength:.1f}m")
-        print(f"  Slope range: {min_slope_threshold:.1%} - {max_slope_threshold:.1%}")
+        if verbose:
+            print(f"\n[DetailGenerator] Adding conditional detail...")
+            print(f"  Detail amplitude: {detail_amplitude:.3f}")
+            print(f"  Detail wavelength: {detail_wavelength:.1f}m")
+            print(f"  Slope range: {min_slope_threshold:.1%} - {max_slope_threshold:.1%}")
 
         # Step 1: Calculate slopes
-        print(f"  [1/4] Calculating slopes...")
+        if verbose:
+            print(f"  [1/4] Calculating slopes...")
         slopes = BuildabilityEnforcer.calculate_slopes(
             terrain,
             self.map_size_meters
         )
 
         # Step 2: Generate high-frequency detail noise
-        print(f"  [2/4] Generating detail noise ({octaves} octaves)...")
+        if verbose:
+            print(f"  [2/4] Generating detail noise ({octaves} octaves)...")
         detail_noise = self._generate_detail_noise(
             detail_wavelength,
             octaves,
@@ -150,7 +155,8 @@ class DetailGenerator:
         )
 
         # Step 3: Calculate proportional scaling factors
-        print(f"  [3/4] Computing scaling factors...")
+        if verbose:
+            print(f"  [3/4] Computing scaling factors...")
         scaling_factors = self._calculate_scaling_factors(
             slopes,
             min_slope_threshold,
@@ -158,7 +164,8 @@ class DetailGenerator:
         )
 
         # Step 4: Apply scaled detail
-        print(f"  [4/4] Applying detail...")
+        if verbose:
+            print(f"  [4/4] Applying detail...")
         detailed_terrain = terrain.copy()
         detail_contribution = detail_noise * scaling_factors * detail_amplitude
         detailed_terrain += detail_contribution
@@ -178,10 +185,11 @@ class DetailGenerator:
             elapsed
         )
 
-        print(f"  [SUCCESS] Detail applied to {stats['detail_applied_pct']:.1f}% of terrain")
-        print(f"  Mean detail amplitude: {stats['mean_detail_amplitude']:.4f}")
-        print(f"  Max detail amplitude: {stats['max_detail_amplitude']:.4f}")
-        print(f"  Processing time: {stats['processing_time']:.2f}s")
+        if verbose:
+            print(f"  [SUCCESS] Detail applied to {stats['detail_applied_pct']:.1f}% of terrain")
+            print(f"  Mean detail amplitude: {stats['mean_detail_amplitude']:.4f}")
+            print(f"  Max detail amplitude: {stats['max_detail_amplitude']:.4f}")
+            print(f"  Processing time: {stats['processing_time']:.2f}s")
 
         return detailed_terrain.astype(np.float32), stats
 
