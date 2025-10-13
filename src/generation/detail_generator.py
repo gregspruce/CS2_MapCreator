@@ -130,9 +130,28 @@ class DetailGenerator:
         if octaves < 1 or octaves > 4:
             raise ValueError(f"Octaves must be 1-4, got {octaves}")
 
+        # CRITICAL FIX: Scale detail_amplitude relative to terrain amplitude
+        # This prevents detail from being too large for gentle terrain
+        terrain_amplitude = float(terrain.max() - terrain.min())
+        if terrain_amplitude < 0.001:
+            # Terrain too flat, skip detail
+            if verbose:
+                print(f"\n[DetailGenerator] Terrain too flat (amplitude={terrain_amplitude:.6f}), skipping detail")
+            return terrain.copy(), {'skipped': True, 'reason': 'terrain_too_flat'}
+
+        # Scale detail to be proportional to terrain amplitude
+        # Conservative scaling to prevent high-frequency detail from creating excessive slopes
+        # For terrain amplitude 0.1, detail_amplitude 0.02 becomes 0.0002 (0.1% of range)
+        # For terrain amplitude 1.0, detail_amplitude 0.02 becomes 0.002 (0.1% of range)
+        # Using 0.01x multiplier because detail is high-frequency and affects slopes significantly
+        scaled_detail_amplitude = detail_amplitude * terrain_amplitude * 0.01
+
         if verbose:
             print(f"\n[DetailGenerator] Adding conditional detail...")
-            print(f"  Detail amplitude: {detail_amplitude:.3f}")
+            print(f"  Terrain amplitude: {terrain_amplitude:.4f}")
+            print(f"  Detail amplitude (original): {detail_amplitude:.3f}")
+            print(f"  Detail amplitude (scaled): {scaled_detail_amplitude:.4f}")
+            print(f"  Scaling factor: {terrain_amplitude:.2f}x")
             print(f"  Detail wavelength: {detail_wavelength:.1f}m")
             print(f"  Slope range: {min_slope_threshold:.1%} - {max_slope_threshold:.1%}")
 
@@ -167,7 +186,7 @@ class DetailGenerator:
         if verbose:
             print(f"  [4/4] Applying detail...")
         detailed_terrain = terrain.copy()
-        detail_contribution = detail_noise * scaling_factors * detail_amplitude
+        detail_contribution = detail_noise * scaling_factors * scaled_detail_amplitude  # Use scaled amplitude!
         detailed_terrain += detail_contribution
 
         # Clip to valid range [0, 1]

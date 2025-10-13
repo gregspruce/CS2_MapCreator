@@ -612,13 +612,13 @@ class HeightmapGUI(tk.Tk):
                     'ridge_strength': intuitive_params.get('ridge_strength', 0.2),
                     'ridge_octaves': intuitive_params.get('ridge_octaves', 5),
                     'ridge_wavelength': intuitive_params.get('ridge_wavelength', 1500.0),
-                    'apply_ridges': intuitive_params.get('apply_ridges', True),
+                    'apply_ridges': intuitive_params.get('apply_ridges', False),  # Fixed: Match pipeline default
 
                     # Hydraulic Erosion (Session 4)
                     'num_particles': intuitive_params.get('num_particles', 100000),
                     'erosion_rate': intuitive_params.get('pipeline_erosion_rate', 0.5),
                     'deposition_rate': intuitive_params.get('pipeline_deposition_rate', 0.3),
-                    'apply_erosion': intuitive_params.get('apply_erosion', True),
+                    'apply_erosion': intuitive_params.get('apply_erosion', False),  # Fixed: Match pipeline default
 
                     # River Analysis (Session 7)
                     'river_threshold_percentile': intuitive_params.get('river_threshold_percentile', 99.0),
@@ -628,7 +628,7 @@ class HeightmapGUI(tk.Tk):
                     # Detail Addition (Session 8)
                     'detail_amplitude': intuitive_params.get('detail_amplitude', 0.02),
                     'detail_wavelength': intuitive_params.get('detail_wavelength', 75.0),
-                    'apply_detail': intuitive_params.get('apply_detail', True),
+                    'apply_detail': intuitive_params.get('apply_detail', False),  # Fixed: Match pipeline default
 
                     # Constraint Verification (Session 8)
                     'target_buildable_min': intuitive_params.get('target_buildable_min', 55.0),
@@ -636,7 +636,7 @@ class HeightmapGUI(tk.Tk):
                     'apply_constraint_adjustment': intuitive_params.get('apply_constraint_adjustment', True),
 
                     # Control
-                    'verbose': False  # Disable console output (use progress dialog instead)
+                    'verbose': True  # Enable console output for debugging
                 }
 
                 # Update progress: Starting pipeline

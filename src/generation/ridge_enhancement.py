@@ -196,6 +196,30 @@ class RidgeEnhancer:
             print(f"  Ridge strength: {ridge_strength:.2f}")
             print(f"  Blend transition: P={blend_edge0:.2f} to P={blend_edge1:.2f}")
 
+        # CRITICAL FIX: Scale ridge_strength relative to terrain amplitude
+        # This prevents ridges from dominating gentle terrain
+        terrain_amplitude = float(terrain.max() - terrain.min())
+        if terrain_amplitude < 0.001:
+            # Terrain too flat, skip ridges
+            if verbose:
+                print(f"\n[RidgeEnhancer] Terrain too flat (amplitude={terrain_amplitude:.6f}), skipping ridges")
+            return terrain.copy(), {'skipped': True, 'reason': 'terrain_too_flat'}
+
+        # Scale ridges to be proportional to terrain amplitude
+        # Ridges are low-frequency prominent features (wavelength ~1500m)
+        # Using 0.15x multiplier to create noticeable but not dominant features
+        # For terrain amplitude 0.1, ridge_strength 0.2 becomes 0.003 (3% of range)
+        # For terrain amplitude 1.0, ridge_strength 0.2 becomes 0.03 (3% of range)
+        # This is 15x larger than detail (0.01x) because ridges are prominent scenic features
+        scaled_ridge_strength = ridge_strength * terrain_amplitude * 0.15
+
+        if verbose:
+            print(f"\n[AMPLITUDE-AWARE SCALING]")
+            print(f"  Terrain amplitude: {terrain_amplitude:.4f}")
+            print(f"  Ridge strength (original): {ridge_strength:.3f}")
+            print(f"  Ridge strength (scaled): {scaled_ridge_strength:.4f}")
+            print(f"  Scaling factor: {terrain_amplitude:.2f}x")
+
         # Validate inputs
         if terrain.shape != (self.resolution, self.resolution):
             raise ValueError(f"Terrain shape {terrain.shape} "
@@ -262,8 +286,8 @@ class RidgeEnhancer:
         if verbose:
             print(f"\n[STEP 3] Applying blended ridge enhancement...")
 
-        # T_final = T + alpha x R x strength
-        enhanced_terrain = terrain + alpha * ridge_noise * ridge_strength
+        # T_final = T + alpha x R x scaled_strength
+        enhanced_terrain = terrain + alpha * ridge_noise * scaled_ridge_strength
 
         # Clip to valid range [0, 1]
         enhanced_terrain = np.clip(enhanced_terrain, 0.0, 1.0)

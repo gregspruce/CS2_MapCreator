@@ -336,7 +336,7 @@ class HydraulicErosionSimulator:
               sediment_capacity: float = 6.0,
               min_slope: float = 0.0005,
               brush_radius: int = 3,
-              terrain_scale: float = 2.5,
+              terrain_scale: float = None,  # Changed: Now auto-calculated if None
               verbose: bool = True) -> Tuple[np.ndarray, Dict]:
         """
         Apply particle-based hydraulic erosion with zone modulation.
@@ -352,7 +352,7 @@ class HydraulicErosionSimulator:
             sediment_capacity: Max sediment per water (4.0-8.0, default 6.0)
             min_slope: Movement threshold (0.0001-0.001, default 0.0005)
             brush_radius: Erosion spread radius (3-5 pixels, default 3)
-            terrain_scale: Amplitude scale for [0,1] terrain (1.0-5.0, default 2.5)
+            terrain_scale: Amplitude scale for erosion (default: auto-calculated as terrain_amplitude * 0.001)
             verbose: Print progress information
 
         Returns:
@@ -378,6 +378,26 @@ class HydraulicErosionSimulator:
         if not (0.05 <= inertia <= 0.5):
             raise ValueError(f"inertia out of range: {inertia} (valid: 0.05-0.5)")
 
+        # CRITICAL FIX: Auto-calculate terrain_scale based on actual terrain amplitude
+        # This ensures erosion strength is proportional to terrain range
+        if terrain_scale is None:
+            terrain_amplitude = float(heightmap.max() - heightmap.min())
+            if terrain_amplitude < 0.001:
+                raise ValueError(f"Terrain too flat: amplitude={terrain_amplitude:.6f}")
+
+            # Scale factor: Make erosion proportional to terrain amplitude
+            # Multiplier tuned empirically for gentle but noticeable erosion
+            # For terrain with amplitude 0.1, use terrain_scale ~0.1
+            # For terrain with amplitude 1.0, use terrain_scale ~1.0
+            # With amplitude preservation, this creates subtle valley filling
+            terrain_scale = terrain_amplitude * 1.0
+
+            if verbose:
+                print(f"\n[TERRAIN SCALE AUTO-CALCULATION]")
+                print(f"  Terrain amplitude: {terrain_amplitude:.4f}")
+                print(f"  Calculated terrain_scale: {terrain_scale:.2f}")
+                print(f"  Rationale: Erosion scaled to {(terrain_scale / terrain_amplitude):.1f}x terrain amplitude")
+
         if verbose:
             impl_type = "Numba JIT" if self.using_numba else "Pure NumPy (SLOW)"
             print(f"\n[SESSION 4: Particle-Based Hydraulic Erosion]")
@@ -385,6 +405,7 @@ class HydraulicErosionSimulator:
             print(f"  Resolution: {heightmap.shape[0]}×{heightmap.shape[1]}")
             print(f"  Particles: {num_particles:,}")
             print(f"  Brush radius: {brush_radius} pixels")
+            print(f"  Terrain scale: {terrain_scale:.2f}")
             print(f"  Zone modulation: ENABLED (buildable=1.5×, scenic=0.5×)")
 
         start_time = time.time()
@@ -440,10 +461,21 @@ class HydraulicErosionSimulator:
 
         elapsed = time.time() - start_time
 
-        # Normalize to [0, 1] FIRST
+        # CRITICAL FIX: Preserve original amplitude instead of normalizing to [0,1]
+        # This prevents slope amplification that destroys buildability
         eroded_min, eroded_max = eroded.min(), eroded.max()
+        original_amplitude = heightmap.max() - heightmap.min()
+
         if eroded_max > eroded_min:
-            eroded = (eroded - eroded_min) / (eroded_max - eroded_min)
+            # Normalize to original amplitude, not [0,1]
+            eroded = (eroded - eroded_min) / (eroded_max - eroded_min) * original_amplitude
+
+        if verbose:
+            print(f"\n[AMPLITUDE PRESERVATION]")
+            print(f"  Original range: [0.000, {original_amplitude:.4f}]")
+            print(f"  Eroded range (before norm): [{eroded_min:.4f}, {eroded_max:.4f}]")
+            print(f"  Final range (after norm): [0.000, {eroded.max():.4f}]")
+            print(f"  Amplification: {eroded.max() / original_amplitude:.2f}x")
 
         # Calculate final buildability AFTER normalization
         final_slopes = BuildabilityEnforcer.calculate_slopes(eroded, self.map_size_meters)
