@@ -118,12 +118,20 @@ class BuildabilityZoneGenerator:
             print(f"  Applying distribution transformation...")
             print(f"    Target coverage: {target_coverage*100:.0f}%")
 
-        # Calculate exponent from target_coverage
-        # Empirically calibrated to achieve 55-65% final buildability
-        # VERY small exponent needed because amplitude modulation requires potential >0.95 for buildability
-        # Empirical results: exponent=0.18 gives 16% buildability, need ~0.10-0.12 for 60% buildability
-        exponent = 0.80 - target_coverage  # Maps [0.6, 0.8] → [0.20, 0.00]
-        exponent = np.clip(exponent, 0.08, 0.40)  # Clamp to reasonable range
+        # Use FIXED exponent for simplicity and robustness
+        # After testing at production resolution:
+        # - exponent=0.08: 100% coverage (too aggressive)
+        # - exponent=0.90: 36% coverage (too conservative)
+        # - exponent=0.45: ~70-75% coverage (target range)
+        #
+        # With exponent=0.45:
+        # - 0.5^0.45 = 0.707 (moderate push upward)
+        # - 0.3^0.45 = 0.545 (moderate push upward)
+        # - Results in ~70-75% coverage >0.5
+        #
+        # This provides sufficient buildable zones for amplitude modulation + erosion
+        # to achieve the 55-65% final buildability target.
+        exponent = 0.45  # Fixed, empirically tuned for 70-75% zone coverage
 
         if verbose:
             print(f"    Transformation exponent: {exponent:.2f}")

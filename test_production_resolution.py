@@ -38,7 +38,7 @@ def test_production_resolution():
         'zone_octaves': 2,
 
         # Terrain Generation (Session 3)
-        'base_amplitude': 0.09,  # Tuned to achieve 55-65% buildability (was 0.18, too steep)
+        'base_amplitude': 0.063,  # Tuned for 55-65% buildability at 5% slope threshold
         'min_amplitude_mult': 0.3,
         'max_amplitude_mult': 1.0,
         'terrain_wavelength': 1000.0,

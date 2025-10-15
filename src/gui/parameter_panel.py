@@ -72,7 +72,7 @@ class ParameterPanel(ttk.Frame):
             'zone_octaves': tk.IntVar(value=2),  # 2-3
 
             # Terrain Generation (Session 3)
-            'base_amplitude': tk.DoubleVar(value=0.09),  # Tuned for 55-65% buildability (was 0.18 - too steep)
+            'base_amplitude': tk.DoubleVar(value=0.063),  # Tuned for 55-65% buildability at 5% slope threshold
             'min_amplitude_mult': tk.DoubleVar(value=0.3),  # 0.2-0.4
             'max_amplitude_mult': tk.DoubleVar(value=1.0),  # 0.8-1.2
             'terrain_wavelength': tk.DoubleVar(value=1000.0),  # 500-2000m
@@ -98,7 +98,7 @@ class ParameterPanel(ttk.Frame):
             # Detail Addition (Session 8)
             'detail_amplitude': tk.DoubleVar(value=0.02),  # 0.01-0.05
             'detail_wavelength': tk.DoubleVar(value=75.0),  # 50-150m
-            'apply_detail': tk.BooleanVar(value=False),  # Disabled - too large for gentle terrain
+            'apply_detail': tk.BooleanVar(value=True),  # Session 8: Enabled by default per implementation plan
 
             # Constraint Verification (Session 8)
             'target_buildable_min': tk.DoubleVar(value=55.0),  # 55%

@@ -628,7 +628,7 @@ class HeightmapGUI(tk.Tk):
                     # Detail Addition (Session 8)
                     'detail_amplitude': intuitive_params.get('detail_amplitude', 0.02),
                     'detail_wavelength': intuitive_params.get('detail_wavelength', 75.0),
-                    'apply_detail': intuitive_params.get('apply_detail', False),  # Fixed: Match pipeline default
+                    'apply_detail': intuitive_params.get('apply_detail', True),  # Session 8: Enabled by default per implementation plan
 
                     # Constraint Verification (Session 8)
                     'target_buildable_min': intuitive_params.get('target_buildable_min', 55.0),

@@ -135,7 +135,7 @@ class TerrainGenerationPipeline:
                  zone_octaves: int = 2,
 
                  # Terrain generation parameters (Session 3)
-                 base_amplitude: float = 0.09,  # Tuned for 55-65% buildability (was 0.18 - too steep)
+                 base_amplitude: float = 0.063,  # Tuned for 55-65% buildability at 5% slope threshold
                  min_amplitude_mult: float = 0.3,
                  max_amplitude_mult: float = 1.0,
                  terrain_wavelength: float = 1000.0,
