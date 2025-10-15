@@ -245,12 +245,19 @@ def simulate_particle_numba(
         ix = max(0, min(width - 1, ix))
         iy = max(0, min(height - 1, iy))
         zone_potential = buildability_potential[iy, ix]
-        zone_factor = 0.5 + 1.0 * zone_potential  # [0.5, 1.5] range
+
+        # CRITICAL FIX: Erosion factor should be LOWER in buildable zones
+        # Implementation plan: High buildability=50% erosion, Low buildability=150% erosion
+        erosion_factor = 1.5 - 1.0 * zone_potential  # buildable=0.5×, scenic=1.5×
+
+        # Deposition factor should be HIGHER in buildable zones (opposite of erosion)
+        # This fills valleys in buildable areas, creating flat terrain
+        deposition_factor = 0.5 + 1.0 * zone_potential  # buildable=1.5×, scenic=0.5×
 
         # Erode or deposit
         if sediment < capacity:
-            # ERODE - carve terrain
-            erode_amount = (capacity - sediment) * erosion_rate * zone_factor
+            # ERODE - carve terrain (GENTLE in buildable zones, STRONG in scenic)
+            erode_amount = (capacity - sediment) * erosion_rate * erosion_factor
             sediment += erode_amount
 
             # Apply erosion with Gaussian brush
@@ -262,8 +269,9 @@ def simulate_particle_numba(
                         heightmap[ny, nx] -= erode_amount * weight
 
         else:
-            # DEPOSIT - fill valleys (creates flat buildable areas!)
-            deposit_amount = (sediment - capacity) * deposition_rate
+            # DEPOSIT - fill valleys (STRONG in buildable zones, GENTLE in scenic)
+            # This is THE KEY to achieving 55-65% buildability!
+            deposit_amount = (sediment - capacity) * deposition_rate * deposition_factor
             sediment -= deposit_amount
 
             # Apply deposition with Gaussian brush
@@ -406,7 +414,7 @@ class HydraulicErosionSimulator:
             print(f"  Particles: {num_particles:,}")
             print(f"  Brush radius: {brush_radius} pixels")
             print(f"  Terrain scale: {terrain_scale:.2f}")
-            print(f"  Zone modulation: ENABLED (buildable=1.5×, scenic=0.5×)")
+            print(f"  Zone modulation: ENABLED (erosion: buildable=0.5×/scenic=1.5×, deposition: buildable=1.5×/scenic=0.5×)")
 
         start_time = time.time()
 

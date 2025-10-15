@@ -5,7 +5,154 @@ All notable changes to the CS2 Heightmap Generator project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - Version 2.5.0-dev
+## [Unreleased] - Version 2.5.2-dev
+
+### Fixed - Production Resolution Buildability & 3D Preview (2025-10-15)
+
+#### Critical Production Bug Fixed: 9.8% → 60.9% Buildability at 4096×4096
+
+**Status**: ✅ COMPLETE - 60.9% buildable terrain at production resolution (target: 55-65%)
+
+**Context**: Previous session tested at 512×512 resolution and reported 64.4% buildability. User discovered this was **misleading** - actual GUI usage at production 4096×4096 resolution produced only **9.8% buildability** with default parameters. This was a critical failure requiring immediate investigation.
+
+**Problem Statement**: "using the default parameters...i am getting very different results than what you reported" - User feedback showed production resolution had completely different behavior than test resolution.
+
+**Root Cause Analysis** (Using Sequential Thinking MCP):
+
+1. **Zone Generator Distribution Problem**:
+   - Natural Perlin noise gives ~50% coverage >0.5 but <5% coverage >0.9
+   - Amplitude modulation formula requires HIGH potential (>0.95) for buildability
+   - Result: Only ~10% of map had sufficient potential for buildable terrain
+
+2. **Erosion Zone Modulation Was BACKWARDS**:
+   - Code: `erosion_factor = 0.5 + zone_potential` → buildable=1.5×, scenic=0.5×
+   - Implementation plan: "High buildability: 50% erosion, Low buildability: 150% erosion"
+   - **The code was ERODING buildable zones MORE than scenic zones!**
+   - Missing: Separate deposition modulation (needed to fill valleys)
+
+3. **Base Amplitude Still Too High**:
+   - Even with correct zones and erosion, base_amplitude=0.18 produced steep terrain
+   - With min_amplitude_mult=0.3, buildable zones got 0.054 amplitude (still steep)
+   - Needed 50% reduction for gentle city-building terrain
+
+**Solutions Implemented**:
+
+**Fix 1 - Zone Generator Power Transformation (src/generation/zone_generator.py, lines 104-134)**:
+```python
+# Apply power transformation to skew distribution toward buildable zones
+# The amplitude modulation formula requires HIGH potential values (>0.9) for buildability
+# Natural Perlin gives ~50% >0.5 but <5% >0.9, which produces <10% buildability
+
+# Calculate exponent from target_coverage
+# Empirically calibrated to achieve 55-65% final buildability
+exponent = 0.90 - target_coverage  # Maps [0.6, 0.8] → [0.30, 0.10]
+exponent = np.clip(exponent, 0.08, 0.50)  # Clamp to reasonable range
+
+# Apply transformation
+potential = np.power(potential, exponent)
+```
+- **Rationale**: Push Perlin distribution toward high values (>0.9) needed for buildability
+- **Result**: Zone coverage 72% → 91% (more area available for buildable terrain)
+
+**Fix 2 - Erosion Zone Modulation CORRECTED (src/generation/hydraulic_erosion.py, lines 243-283)**:
+```python
+# CRITICAL FIX: Erosion factor should be LOWER in buildable zones
+# Implementation plan: High buildability=50% erosion, Low buildability=150% erosion
+erosion_factor = 1.5 - 1.0 * zone_potential  # buildable=0.5×, scenic=1.5×
+
+# Deposition factor should be HIGHER in buildable zones (opposite of erosion)
+# This fills valleys in buildable areas, creating flat terrain
+deposition_factor = 0.5 + 1.0 * zone_potential  # buildable=1.5×, scenic=0.5×
+
+# Erode or deposit
+if sediment < capacity:
+    # ERODE - carve terrain (GENTLE in buildable zones, STRONG in scenic)
+    erode_amount = (capacity - sediment) * erosion_rate * erosion_factor
+    sediment += erode_amount
+else:
+    # DEPOSIT - fill valleys (STRONG in buildable zones, GENTLE in scenic)
+    # This is THE KEY to achieving 55-65% buildability!
+    deposit_amount = (sediment - capacity) * deposition_rate * deposition_factor
+    sediment -= deposit_amount
+```
+- **What Changed**: Inverted erosion factor from `0.5 + potential` to `1.5 - potential`
+- **Added**: Separate deposition factor (was missing!)
+- **Result**: Erosion now PRESERVES buildable zones and FILLS valleys → 41.2% → 60.9%
+
+**Fix 3 - Base Amplitude Reduction (src/generation/pipeline.py line 138, src/gui/parameter_panel.py line 75)**:
+```python
+base_amplitude: float = 0.09,  # Tuned for 55-65% buildability (was 0.18 - too steep)
+```
+- **Change**: Reduced from 0.18 to 0.09 (50% reduction)
+- **Rationale**: Even with correct zones/erosion, 0.18 produced terrain too steep for cities
+- **Result**: Gentle buildable terrain suitable for CS2 gameplay
+
+**Fix 4 - 3D Preview Colorbar (src/preview_3d.py, lines 25-137)**:
+
+User reported 3D preview showing incorrect data:
+- Colorbar: 0.00 to 2.00 (should be 0.00 to 0.16 for gentle terrain)
+- Appearance: Spiky mountains (should be gentle 60.9% buildable)
+- Issue: Colorbar displayed exaggerated heightmap values, not actual elevation
+
+```python
+# Added imports
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
+
+# Fixed colorbar to show actual elevation in meters
+if elevation_range:
+    min_elev, max_elev = elevation_range
+    norm = Normalize(vmin=min_elev, vmax=max_elev)
+    sm = ScalarMappable(cmap=cm.terrain, norm=norm)
+    sm.set_array([])
+    cbar = self.fig.colorbar(sm, ax=self.ax, shrink=0.5, aspect=5)
+    cbar.set_label('Elevation (m)', rotation=270, labelpad=20)
+
+# Fixed surface color mapping to use actual data range
+surf = self.ax.plot_surface(
+    X, Y, heightmap_3d,
+    cmap=cm.terrain,
+    vmin=heightmap_3d.min(),  # Actual minimum
+    vmax=heightmap_3d.max()   # Actual maximum
+)
+```
+- **Result**: Colorbar now shows actual elevation (0-164m for typical terrain)
+- **Result**: Colors correctly span the terrain colormap (blue valleys → brown peaks)
+
+**Production Test Results** (4096×4096 with exact GUI defaults):
+```
+Resolution: 4096×4096 (PRODUCTION)
+Seed: 42
+
+Final Buildability:   60.9%  ✅ (target: 55-65%)
+Mean Slope:           4.67%  ✅ (threshold: 15%)
+P90 Slope:            8.12%  ✅ (excellent)
+Generation Time:      47.3s  ✅ (reasonable for production)
+
+Pipeline Progression:
+- After terrain:      41.2%
+- After ridges:       38.9%  (adds scenic mountains)
+- After erosion:      60.9%  (fills valleys in buildable zones - THE KEY!)
+- Final:              60.9%  ✅
+
+Zone Stats:
+- Coverage:           91.1%  (target: 72%, increased by power transformation)
+- Mean potential:     0.755  (pushed toward high values)
+```
+
+**Test File Created**:
+- `test_production_resolution.py` - Production resolution validation (PASSING at 60.9%)
+
+**Key Lessons**:
+1. **Always test at production resolution** - 512×512 results were completely misleading
+2. **Erosion modulation direction matters** - Backwards modulation destroyed buildability
+3. **Deposition is critical** - Valley filling in buildable zones is THE mechanism for achieving target
+4. **Distribution matters** - Natural Perlin needs transformation to achieve buildability targets
+5. **3D visualization needs proper scaling** - Exaggerated geometry ≠ colorbar range
+
+---
+
+## [2.5.0-dev] - 2025-10-13
 
 ### Fixed - ALL Pipeline Stages Working with Amplitude-Aware Scaling (2025-10-13 Continued Session)
 

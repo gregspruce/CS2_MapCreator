@@ -130,12 +130,12 @@ class TerrainGenerationPipeline:
 
     def generate(self,
                  # Zone generation parameters (Session 2)
-                 target_coverage: float = 0.77,  # Tuned for 55-65% buildability (no erosion)
+                 target_coverage: float = 0.72,  # Tuned for 55-65% buildability (with all stages)
                  zone_wavelength: float = 6500.0,
                  zone_octaves: int = 2,
 
                  # Terrain generation parameters (Session 3)
-                 base_amplitude: float = 0.175,  # Tuned for 55-65% buildability (no erosion)
+                 base_amplitude: float = 0.09,  # Tuned for 55-65% buildability (was 0.18 - too steep)
                  min_amplitude_mult: float = 0.3,
                  max_amplitude_mult: float = 1.0,
                  terrain_wavelength: float = 1000.0,
@@ -165,10 +165,10 @@ class TerrainGenerationPipeline:
                  apply_constraint_adjustment: bool = True,
 
                  # Control flags
-                 apply_ridges: bool = False,  # Disabled - ridges add steep slopes
-                 apply_erosion: bool = False,  # Disabled - creates near-vertical terrain (see EROSION_ANALYSIS_FINAL.md)
+                 apply_ridges: bool = True,  # Session 5: Ridge enhancement for coherent mountain ranges
+                 apply_erosion: bool = True,  # Session 4: THE critical component for 55-65% buildability
                  apply_rivers: bool = True,
-                 apply_detail: bool = False,  # Disabled - detail too large for gentle terrain (causes steep artificial slopes)
+                 apply_detail: bool = False,  # Session 8: Conditional detail (optional)
                  verbose: bool = True
                  ) -> Tuple[np.ndarray, Dict]:
         """

@@ -26,6 +26,8 @@ import numpy as np
 from scipy import ndimage
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
 from mpl_toolkits.mplot3d import Axes3D
 from typing import Optional
 
@@ -107,21 +109,34 @@ class Preview3D:
         self.ax = self.fig.add_subplot(111, projection='3d')
 
         # Step 5: Create surface plot with elevation coloring
+        # Use actual data range for color mapping (not theoretical max)
+        # This ensures colors span the full colormap appropriately
         surf = self.ax.plot_surface(
             X, Y, heightmap_3d,
             cmap=cm.terrain,  # Terrain colormap (blue→green→brown→white)
             linewidth=0,
             antialiased=True,
             alpha=0.9,
-            vmin=0.0,
-            vmax=vertical_exaggeration
+            vmin=heightmap_3d.min(),  # Actual minimum
+            vmax=heightmap_3d.max()   # Actual maximum
         )
 
         # Step 6: Configure view and labels
         self._configure_view(title, elevation_range, vertical_exaggeration)
 
-        # Step 7: Add colorbar
-        self.fig.colorbar(surf, ax=self.ax, shrink=0.5, aspect=5)
+        # Step 7: Add colorbar with proper elevation scaling
+        if elevation_range:
+            # Create colorbar that shows actual elevation in meters
+            # (not the exaggerated heightmap values)
+            min_elev, max_elev = elevation_range
+            norm = Normalize(vmin=min_elev, vmax=max_elev)
+            sm = ScalarMappable(cmap=cm.terrain, norm=norm)
+            sm.set_array([])  # Required for ScalarMappable
+            cbar = self.fig.colorbar(sm, ax=self.ax, shrink=0.5, aspect=5)
+            cbar.set_label('Elevation (m)', rotation=270, labelpad=20)
+        else:
+            # No elevation range provided, show normalized values
+            self.fig.colorbar(surf, ax=self.ax, shrink=0.5, aspect=5)
 
         # Step 8: Show window (non-blocking)
         plt.show(block=False)

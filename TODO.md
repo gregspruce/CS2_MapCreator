@@ -1,52 +1,71 @@
 # TODO - CS2 Heightmap Generator
 
-**Last Updated**: 2025-10-13 22:35
-**Current Version**: 2.5.0-dev
-**Status**: ✅ ALL PIPELINE STAGES WORKING - 62.1% with everything enabled (Target: 55-65%)
+**Last Updated**: 2025-10-15 (Current Session)
+**Current Version**: 2.5.2-dev
+**Status**: ✅ PRODUCTION RESOLUTION VALIDATED - 60.9% buildability at 4096×4096 (Target: 55-65%)
 
 ---
 
-## 🎯 CURRENT STATUS: ALL STAGES FIXED AND VALIDATED
+## 🎯 CURRENT STATUS: PRODUCTION READY
 
 ### Buildability Solution - COMPLETE ✅
 
-**Achievement**: 62.1% buildable terrain with **ALL stages enabled** (target: 55-65%)
+**Achievement**: 60.9% buildable terrain at **PRODUCTION RESOLUTION (4096×4096)** with **ALL stages enabled**
 
-**Approach**: Amplitude-aware scaling for float32 terrain
-- ✅ **Erosion ENABLED** (fixed with amplitude preservation)
-- ✅ **Ridges ENABLED** (fixed with amplitude-aware scaling)
-- ✅ **Detail ENABLED** (fixed with amplitude-aware scaling)
-- ✅ **Rivers ENABLED** (working correctly)
-- ✅ **All 6 pipeline stages working per implementation plan**
+**Critical Fix This Session**: Previous 512×512 tests were misleading - production 4096×4096 had only 9.8% buildability!
 
-**Test Results** (512×512, seed=42, ALL stages enabled):
+**Approach**: Complete implementation per CS2_FINAL_IMPLEMENTATION_PLAN.md
+- ✅ **Zone Generator POWER TRANSFORMATION** (push distribution toward buildable)
+- ✅ **Erosion Zone Modulation FIXED** (was backwards - now preserves buildable zones)
+- ✅ **Base Amplitude TUNED** (reduced from 0.18 to 0.09 for gentle terrain)
+- ✅ **3D Preview FIXED** (colorbar now shows actual elevation in meters)
+- ✅ **All pipeline stages enabled by default**
+
+**Production Test Results** (4096×4096 with exact GUI defaults):
 ```
-Buildable percentage: 62.1%  ✓ (target: 55-65%)
-Mean slope:           4.61%  ✓ (threshold: 15%)
-P90 slope:            7.80%  ✓ (excellent)
-Generation time:      1.10s  ✓ (fast)
+Final Buildability:   60.9%  ✓ (target: 55-65%)
+Mean Slope:           4.67%  ✓ (threshold: 15%)
+P90 Slope:            8.12%  ✓ (excellent)
+Generation time:      ~47s   ✓ (reasonable for production)
 
-Buildability Progression:
-- After terrain:  62.7%
-- After ridges:   62.1% (-0.6% for scenic features)
-- After erosion:  62.1% (preserved)
-- After detail:   62.1% (preserved)
-- FINAL:          62.1% ✅
+Pipeline Progression:
+- After terrain:      41.2%
+- After ridges:       38.9%  (adds scenic mountains)
+- After erosion:      60.9%  (fills valleys in buildable zones)
+- Final:              60.9%  ✓
+
+Zone Coverage:        91.1%  (target: 72%)
 ```
 
-**The Three Critical Fixes**:
-1. **Erosion**: Amplitude preservation prevents 10.7x slope amplification
-2. **Detail**: Amplitude-aware scaling (0.01x multiplier) for high-frequency features
-3. **Ridges**: Amplitude-aware scaling (0.15x multiplier) for prominent features
+**Key Fixes Implemented This Session**:
+1. **Zone Power Transformation** (zone_generator.py lines 104-134):
+   - Added `potential = potential^exponent` where exponent = 0.90 - target_coverage
+   - Pushes distribution toward high potential (>0.9) needed for buildability
+   - Clipped to [0.08, 0.50] range for safety
+
+2. **Erosion Zone Modulation FIXED** (hydraulic_erosion.py lines 243-283):
+   - Was backwards: eroding buildable zones MORE than scenic
+   - Fixed: erosion_factor = 1.5 - potential (buildable=0.5×, scenic=1.5×)
+   - Added: deposition_factor = 0.5 + potential (buildable=1.5×, scenic=0.5×)
+   - Result: Erosion now FILLS valleys in buildable zones (THE KEY to 55-65%)
+
+3. **Base Amplitude Reduced** (pipeline.py line 138, parameter_panel.py line 75):
+   - Changed from 0.18 to 0.09 (50% reduction)
+   - Even with correct zones/erosion, 0.18 was too steep
+   - Result: Gentle buildable terrain suitable for cities
+
+4. **3D Preview Fixed** (preview_3d.py lines 25-137):
+   - Colorbar was showing exaggerated values (0.0-2.0) instead of elevation
+   - Fixed: Use ScalarMappable with actual elevation_range for colorbar
+   - Fixed: Use actual data range (vmin/vmax) for surface color mapping
+   - Result: 3D preview now shows correct elevation (0-164m) and colors
 
 **Documentation**:
-- ✅ `claude_continue.md` - Comprehensive session documentation
-- ✅ `CHANGELOG.md` - Detailed technical entry
-- ✅ `test_all_stages_fixed.py` - Validation test (passing)
-- ✅ `test_erosion_fix.py` - Erosion validation (passing)
-- ✅ `test_detail_fix.py` - Detail validation (passing)
-- ✅ `test_ridge_fix.py` - Ridge validation (passing)
-- ✅ `test_stage_by_stage.py` - Diagnostic testing
+- ✅ `test_production_resolution.py` - Production validation test (PASSING at 60.9%)
+- ✅ Zone generator updated with power transformation
+- ✅ Erosion modulation fixed (backwards → correct)
+- ✅ Parameters tuned for production resolution
+- ✅ 3D preview colorbar fixed
 
 ---
 

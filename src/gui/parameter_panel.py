@@ -67,12 +67,12 @@ class ParameterPanel(ttk.Frame):
         # Session 9: New Pipeline Parameters (Sessions 2-8)
         self.pipeline_params = {
             # Zone Generation (Session 2)
-            'target_coverage': tk.DoubleVar(value=0.77),  # Tuned for 55-65% buildability (no erosion)
+            'target_coverage': tk.DoubleVar(value=0.72),  # Tuned for 55-65% buildability (with all stages)
             'zone_wavelength': tk.DoubleVar(value=6500.0),  # 5000-8000m
             'zone_octaves': tk.IntVar(value=2),  # 2-3
 
             # Terrain Generation (Session 3)
-            'base_amplitude': tk.DoubleVar(value=0.175),  # Tuned for 55-65% buildability (no erosion)
+            'base_amplitude': tk.DoubleVar(value=0.09),  # Tuned for 55-65% buildability (was 0.18 - too steep)
             'min_amplitude_mult': tk.DoubleVar(value=0.3),  # 0.2-0.4
             'max_amplitude_mult': tk.DoubleVar(value=1.0),  # 0.8-1.2
             'terrain_wavelength': tk.DoubleVar(value=1000.0),  # 500-2000m
@@ -82,13 +82,13 @@ class ParameterPanel(ttk.Frame):
             'ridge_strength': tk.DoubleVar(value=0.2),  # 0.1-0.3
             'ridge_octaves': tk.IntVar(value=5),  # 4-6
             'ridge_wavelength': tk.DoubleVar(value=1500.0),  # 1000-2000m
-            'apply_ridges': tk.BooleanVar(value=False),  # Disabled - ridges add steep slopes
+            'apply_ridges': tk.BooleanVar(value=True),  # Session 5: Ridge enhancement for coherent mountains
 
             # Hydraulic Erosion (Session 4)
             'num_particles': tk.IntVar(value=100000),  # 50k-200k
             'pipeline_erosion_rate': tk.DoubleVar(value=0.2),  # 0.1-0.5
             'pipeline_deposition_rate': tk.DoubleVar(value=0.6),  # 0.3-0.8
-            'apply_erosion': tk.BooleanVar(value=False),  # Disabled - creates near-vertical terrain (see EROSION_ANALYSIS_FINAL.md)
+            'apply_erosion': tk.BooleanVar(value=True),  # Session 4: THE critical component for 55-65% buildability
 
             # River Analysis (Session 7)
             'river_threshold_percentile': tk.DoubleVar(value=99.0),  # 95-99.5

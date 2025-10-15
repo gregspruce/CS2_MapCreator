@@ -612,13 +612,13 @@ class HeightmapGUI(tk.Tk):
                     'ridge_strength': intuitive_params.get('ridge_strength', 0.2),
                     'ridge_octaves': intuitive_params.get('ridge_octaves', 5),
                     'ridge_wavelength': intuitive_params.get('ridge_wavelength', 1500.0),
-                    'apply_ridges': intuitive_params.get('apply_ridges', False),  # Fixed: Match pipeline default
+                    'apply_ridges': intuitive_params.get('apply_ridges', True),  # Session 5: Enabled for coherent mountains
 
                     # Hydraulic Erosion (Session 4)
                     'num_particles': intuitive_params.get('num_particles', 100000),
-                    'erosion_rate': intuitive_params.get('pipeline_erosion_rate', 0.5),
-                    'deposition_rate': intuitive_params.get('pipeline_deposition_rate', 0.3),
-                    'apply_erosion': intuitive_params.get('apply_erosion', False),  # Fixed: Match pipeline default
+                    'erosion_rate': intuitive_params.get('pipeline_erosion_rate', 0.2),
+                    'deposition_rate': intuitive_params.get('pipeline_deposition_rate', 0.6),
+                    'apply_erosion': intuitive_params.get('apply_erosion', True),  # Session 4: THE critical component
 
                     # River Analysis (Session 7)
                     'river_threshold_percentile': intuitive_params.get('river_threshold_percentile', 99.0),
